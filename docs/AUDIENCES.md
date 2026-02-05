@@ -166,10 +166,10 @@ Customers whose store interactions led to purchases. Identifies high-converting 
 
 ## Usage Examples
 
-### Run Query in Snowflake
+### Run Query in Data Warehouse
 
 ```sql
--- Execute directly in Snowflake worksheet
+-- Execute directly in your DWH SQL interface (Snowflake worksheet, etc.)
 -- Copy contents of analytics_05_audience_high_value.sql and run
 ```
 

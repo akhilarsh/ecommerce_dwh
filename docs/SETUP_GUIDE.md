@@ -2,6 +2,8 @@
 
 This guide provides step-by-step instructions for setting up and running the e-commerce data warehouse project.
 
+> **Supported Platforms:** Currently Snowflake. BigQuery, Redshift, and Databricks connectors are planned.
+
 ## 📋 Prerequisites
 
 ### 1. System Requirements
@@ -10,7 +12,10 @@ This guide provides step-by-step instructions for setting up and running the e-c
 - **RAM:** Minimum 4GB (8GB recommended)
 - **Disk Space:** At least 1GB free space
 
-### 2. Snowflake Account
+### 2. Data Warehouse Account
+
+**Currently Supported: Snowflake**
+
 - Active Snowflake account
 - User with appropriate privileges (CREATE DATABASE, CREATE SCHEMA, CREATE TABLE)
 - Warehouse with sufficient compute resources

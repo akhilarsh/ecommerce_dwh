@@ -2,6 +2,8 @@
 
 This guide covers all operations for the E-Commerce Data Warehouse system.
 
+> **Supported Platforms:** Currently Snowflake. BigQuery, Redshift, and Databricks connectors are planned.
+
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
@@ -63,7 +65,7 @@ dwh validate
 
 #### `dwh test-connection`
 
-Tests connectivity to Snowflake.
+Tests connectivity to the configured data warehouse.
 
 ```bash
 dwh test-connection
@@ -102,7 +104,7 @@ dwh generate-sql -o my_sql_files
 
 #### `dwh create`
 
-Creates tables in Snowflake.
+Creates tables in the configured data warehouse.
 
 ```bash
 # Create all tables
@@ -179,7 +181,7 @@ dwh generate-incremental --customers 50 --orders 500
 
 #### `dwh load-data`
 
-Loads data from CSV files into Snowflake.
+Loads data from CSV files into the configured data warehouse.
 
 ```bash
 # Load initial data (from outputs/initial_data)
@@ -356,13 +358,13 @@ pytest tests/ -k "test_workflow" -v
 
 ### Integration Tests
 
-Integration tests require Snowflake credentials.
+Integration tests require data warehouse credentials.
 
 ```bash
-# Run integration tests (requires Snowflake)
+# Run integration tests (requires DWH connection)
 source venv/bin/activate && pytest tests/test_integration.py -v
 
-# Run Snowflake-specific tests only
+# Run platform-specific tests only
 pytest tests/test_integration.py -v -m "snowflake_required"
 ```
 
@@ -436,7 +438,7 @@ dwh load-data --batch-size=5000
 
 ### Test Failures
 
-**Error:** `Snowflake credentials not configured`
+**Error:** `DWH credentials not configured`
 
 **Solution:**
 1. Set up `.env` file

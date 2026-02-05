@@ -4,6 +4,8 @@
 
 This document provides deep technical details about the e-commerce data warehouse architecture, design patterns, and implementation strategies.
 
+> **Supported Platforms:** Currently Snowflake. The connector architecture supports adding BigQuery, Redshift, and Databricks.
+
 ## 🎯 System Architecture
 
 ### High-Level Architecture
@@ -38,7 +40,8 @@ This document provides deep technical details about the e-commerce data warehous
 └─────────────────────────────────────────────────────────────┘
                             │
 ┌─────────────────────────────────────────────────────────────┐
-│                     Snowflake Data Warehouse                 │
+│                     Data Warehouse Platform                  │
+│              (Currently: Snowflake | Planned: BQ, RS, DB)   │
 │  ┌─────────────────────────────────────────────────┐        │
 │  │         Database: ecommerce_db                  │        │
 │  │         Schema: ecommerce_dwh                   │        │
@@ -297,7 +300,7 @@ class FactSales(BaseTable):
 
 ### 2. SQL Generation Layer (`sql_generator/`)
 
-**Responsibility:** Convert Python models to Snowflake DDL
+**Responsibility:** Convert Python models to platform-specific DDL
 
 **Components:**
 
@@ -366,7 +369,7 @@ class DimCustomersGenerator(BaseEntityGenerator):
 
 ### 4. Data Loading Layer (`data_loaders/`)
 
-**Responsibility:** Load data into Snowflake efficiently
+**Responsibility:** Load data into the data warehouse efficiently
 
 **Components:**
 
@@ -398,7 +401,7 @@ class DataLoadOrchestrator:
 
 ### 5. Connection Layer (`connectors/`)
 
-**Responsibility:** Manage Snowflake connections
+**Responsibility:** Manage data warehouse connections
 
 **Pattern:** Context Manager
 
@@ -501,15 +504,15 @@ ALTER MATERIALIZED VIEW mv_daily_sales REFRESH;
 
 ### 3. Result Caching
 
-- Snowflake automatically caches query results for 24 hours
+- Most DWH platforms cache query results automatically
 - Identical queries return cached results instantly
 - Design for query consistency
 
 ### 4. Partitioning Strategy
 
-- Snowflake auto-partitions based on data ingestion
-- Clustering keys optimize micro-partitions
-- Date-based queries benefit from time-travel features
+- Platform-specific partitioning (Snowflake: micro-partitions, BigQuery: partition tables)
+- Clustering keys optimize data organization
+- Date-based queries benefit from partition pruning
 
 ## 🔒 Security Architecture
 
@@ -602,7 +605,7 @@ HAVING COUNT(*) > 1;  -- Should return 0 rows
 ```
 1. Development
    ├── Local Python environment
-   ├── Snowflake dev account
+   ├── DWH dev account (Snowflake, etc.)
    └── Git feature branch
 
 2. Testing
@@ -611,7 +614,7 @@ HAVING COUNT(*) > 1;  -- Should return 0 rows
    └── Validate data quality
 
 3. Staging
-   ├── Deploy to staging Snowflake
+   ├── Deploy to staging DWH environment
    ├── Load sample production data
    └── Performance testing
 
@@ -643,7 +646,7 @@ HAVING COUNT(*) > 1;  -- Should return 0 rows
 - Millions of daily orders
 
 ### Scaling Strategies
-1. **Vertical:** Increase Snowflake warehouse size
+1. **Vertical:** Increase warehouse compute size
 2. **Horizontal:** Partition large tables by date/region
 3. **Caching:** Use materialized views for hot data
 4. **Archival:** Move old data to separate schemas
