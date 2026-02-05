@@ -1,0 +1,19 @@
+-- Clear all data from tables (respecting FK dependencies - reverse order)
+TRUNCATE TABLE ecommerce_db.e_mart.bridge_product_promotions;
+TRUNCATE TABLE ecommerce_db.e_mart.bridge_order_items;
+TRUNCATE TABLE ecommerce_db.e_mart.fact_loyalty_points;
+TRUNCATE TABLE ecommerce_db.e_mart.fact_customer_interactions;
+TRUNCATE TABLE ecommerce_db.e_mart.fact_inventory_snapshots;
+TRUNCATE TABLE ecommerce_db.e_mart.fact_sales;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_customers;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_products;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_employees;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_stores;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_promotions;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_product_categories;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_customer_segments;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_shipping_methods;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_payment_methods;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_channels;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_time;
+TRUNCATE TABLE ecommerce_db.e_mart.dim_dates;

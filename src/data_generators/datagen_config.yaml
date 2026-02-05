@@ -1,0 +1,118 @@
+# =============================================================================
+# Data Generation Configuration
+# =============================================================================
+# This file defines volumes and settings for synthetic data generation.
+# Values can be overridden via CLI arguments or environment variables.
+#
+# Override priority (highest to lowest):
+#   1. CLI arguments (--customers=500)
+#   2. Environment variables (DATAGEN_CUSTOMERS=500)
+#   3. This config file
+#
+# Generation rules:
+#   - If a value is 0 or missing, that entity is skipped
+#   - CLI can override any value
+#   - Static dimensions (channels, payment methods, etc.) are always generated
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Initial Load - Bulk data generation for fresh warehouse setup
+# -----------------------------------------------------------------------------
+# Used by: dwh generate-data
+initial_load:
+  # Dimension counts
+  customers: 500
+  products: 5000
+  stores: 10
+  employees: 50                  # ~5 per store
+  promotions: 20
+  
+  # Static dimensions (always generated with standard values)
+  channels: 6
+  payment_methods: 10
+  shipping_methods: 8
+  customer_segments: 7
+  product_categories: 100
+  
+  # Fact counts
+  # sales: Number of orders (each order has 1-5 line items in bridge_order_items)
+  sales: 10000
+  
+  # inventory_snapshots: Days of history (records = products × stores × days)
+  # With 5000 products × 10 stores × 365 days = 18.25M records/year
+  # Set to 0 to skip - can add later if inventory analytics needed
+  inventory_snapshots: 0         # Skipped - too large for demo
+  
+  # customer_interactions: Website visits, support calls, etc.
+  customer_interactions: 5000
+  
+  # loyalty_transactions: Points earned/redeemed (for loyalty program members)
+  loyalty_transactions: 3000
+  
+  # Date range for historical data
+  date_start: "2025-01-01"
+  date_end: "2026-01-31"
+
+# -----------------------------------------------------------------------------
+# Incremental Settings - Operations and event-driven generation
+# -----------------------------------------------------------------------------
+# Used by: dwh generate-incremental, dwh generate-store, dwh generate-promotion
+#
+# IMPORTANT: For incremental generation to work correctly, you must either:
+#   1. Run 'dwh cache-keys' first to fetch existing keys from Snowflake, OR
+#   2. Run initial load first, then use the same keys_cache for incremental
+#
+# Without existing keys, orders/interactions will only reference same-day customers.
+incremental:
+  # Date range for incremental data (entries distributed across this range)
+  # CLI can override with --start-date and --end-date
+  start_date: "2026-01-01"
+  end_date: "2026-01-31"
+  
+  # Volume counts (distributed across date range)
+  new_customers: 5
+  new_orders: 50
+  new_interactions: 50
+  new_loyalty_transactions: 50
+  min_items_per_order: 1
+  max_items_per_order: 5
+  existing_customer_ratio: 0.4   # 40% orders from existing customers
+  
+  # Inventory snapshot (generated for end_date only)
+  # Set to true to capture point-in-time inventory during incremental
+  # Records = products × stores (e.g., 5000 × 10 = 5000 per snapshot)
+  # generate_inventory_snapshot: true
+  
+  # Store opening defaults
+  employees_per_store: 5
+  include_initial_inventory: true
+  
+  # Promotion campaign defaults
+  discount_min: 0.10             # 10%
+  discount_max: 0.30             # 30%
+
+# -----------------------------------------------------------------------------
+# Date Range
+# -----------------------------------------------------------------------------
+# Used for date dimension generation
+# IMPORTANT: This range should cover both initial_load and incremental dates
+dates:
+  start: "2025-01-01"
+  end: "2026-12-31"
+
+# -----------------------------------------------------------------------------
+# Output Paths
+# -----------------------------------------------------------------------------
+paths:
+  output_dir: "outputs/initial_data"
+  incremental_output_dir: "outputs/incremental_data"
+  keys_cache: "outputs/keys_cache.json"
+
+# -----------------------------------------------------------------------------
+# Generation Settings
+# -----------------------------------------------------------------------------
+settings:
+  seed: 42                       # Random seed for reproducibility (null for random)
+  validate_integrity: true       # Validate referential integrity after generation
+  locale: "en_US"                # Faker locale for generating names/addresses

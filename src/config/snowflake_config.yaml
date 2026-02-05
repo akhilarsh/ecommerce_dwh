@@ -1,0 +1,50 @@
+# Snowflake Connection Configuration
+# Values can be overridden by environment variables
+
+snowflake:
+  # Account identifier (e.g., xy12345.us-east-1)
+  account: ${SNOWFLAKE_ACCOUNT}
+  
+  # Authentication
+  user: ${SNOWFLAKE_USER}
+  password: ${SNOWFLAKE_PASSWORD}
+  
+  # Warehouse and compute
+  warehouse: ${SNOWFLAKE_WAREHOUSE}
+  
+  # Database and schema
+  database: ${SNOWFLAKE_DATABASE:ecommerce_db}
+  schema: ${SNOWFLAKE_SCHEMA:ecommerce_dwh}
+  
+  # Role
+  role: ${SNOWFLAKE_ROLE:SYSADMIN}
+  
+  # Connection options
+  connection:
+    # Timeout in seconds
+    connection_timeout: 60
+    
+    # Network timeout in seconds
+    network_timeout: 120
+    
+    # Client session keep alive
+    client_session_keep_alive: true
+    
+  # Query execution settings
+  query:
+    # Statement timeout in seconds
+    statement_timeout: 600
+    
+    # Query result caching
+    use_cached_results: true
+    
+  # Data loading settings
+  data_loading:
+    # Batch size for bulk inserts
+    batch_size: 10000
+    
+    # Max file size for staged loading (MB)
+    max_file_size_mb: 100
+    
+    # Compression for staged files
+    compression: GZIP

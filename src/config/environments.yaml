@@ -1,0 +1,91 @@
+# Environment Configuration for E-Commerce Data Warehouse
+# 
+# This file defines environment-specific settings for dev, staging, and prod.
+# The CLI uses these settings when deploying to different environments.
+#
+# Usage:
+#   dwh deploy --env dev      # Uses dev configuration
+#   dwh deploy --env staging  # Uses staging configuration
+#   dwh deploy --env prod     # Uses prod configuration
+
+environments:
+  # Development Environment
+  # Used for local development and testing
+  dev:
+    database: ecommerce_db_dev
+    schema: e_mart
+    warehouse: dev_wh
+    data_retention_days: 7
+    comment: "Development environment for testing"
+    settings:
+      auto_suspend: 60      # Auto-suspend warehouse after 60 seconds
+      auto_resume: true
+      min_cluster_count: 1
+      max_cluster_count: 1
+    
+  # Staging Environment
+  # Used for pre-production testing and UAT
+  staging:
+    database: ecommerce_db_staging
+    schema: e_mart
+    warehouse: staging_wh
+    data_retention_days: 30
+    comment: "Staging environment for UAT"
+    settings:
+      auto_suspend: 120
+      auto_resume: true
+      min_cluster_count: 1
+      max_cluster_count: 2
+    
+  # Production Environment
+  # Live production data warehouse
+  prod:
+    database: ecommerce_db
+    schema: e_mart
+    warehouse: prod_wh
+    data_retention_days: 90
+    comment: "Production data warehouse"
+    settings:
+      auto_suspend: 300
+      auto_resume: true
+      min_cluster_count: 1
+      max_cluster_count: 4
+    # Production-specific safeguards
+    require_approval: true
+    backup_before_deploy: true
+
+# Default environment if none specified
+default_environment: dev
+
+# Pipeline configurations
+pipeline:
+  # Stages that run by default
+  default_stages:
+    - connection
+    - generate-sql
+    - deploy
+    - apply-fk
+    - validate
+  
+  # Stages that require confirmation
+  confirmation_required:
+    - deploy
+    - apply-fk
+    - load-data
+  
+  # Parallel execution settings
+  parallel_stages: false
+  max_parallel: 2
+  
+  # Error handling
+  stop_on_error: true
+  retry_count: 1
+  retry_delay_seconds: 5
+
+# Logging configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_enabled: true
+  file_rotation: daily
+  max_files: 30
