@@ -369,20 +369,64 @@ class SalesHelper(BaseHelper):
         
         # Generate orders (distributed across date range)
         if incremental.new_orders > 0:
-            sales = self._generate_sales(
-                dimension_keys=dimension_keys,
-                count=incremental.new_orders,
-                start_date=start,
-                end_date=end,
-                customer_selector=selector
-            )
-            result.add_fact(sales)
-            self._update_keys("fact_sales", sales.surrogate_keys)
+            all_sales_keys = []
+            frequent_orders_count = 0
             
-            # Generate order items
+            # Handle frequent shoppers first - they get multiple orders each
+            if incremental.frequent_shopper_count > 0 and selector.existing_keys:
+                # Select N existing customers to be frequent shoppers
+                available_frequent = selector.existing_keys.copy()
+                num_frequent = min(incremental.frequent_shopper_count, len(available_frequent))
+                
+                if num_frequent > 0:
+                    frequent_customers = random.sample(available_frequent, num_frequent)
+                    self.logger.info(f"Selected {num_frequent} frequent shoppers: {frequent_customers}")
+                    
+                    # Generate multiple orders for each frequent shopper
+                    for customer_key in frequent_customers:
+                        num_orders = random.randint(
+                            incremental.frequent_shopper_min_orders,
+                            incremental.frequent_shopper_max_orders
+                        )
+                        
+                        # Generate orders for this frequent shopper
+                        frequent_sales = self._generate_sales(
+                            dimension_keys=dimension_keys,
+                            count=num_orders,
+                            start_date=start,
+                            end_date=end,
+                            customer_selector=None  # Will use fixed customer
+                        )
+                        
+                        # Override customer_key for all these orders
+                        frequent_sales.data['customer_key'] = customer_key
+                        
+                        result.add_fact(frequent_sales)
+                        all_sales_keys.extend(frequent_sales.surrogate_keys)
+                        frequent_orders_count += num_orders
+                        self.logger.debug(f"Frequent shopper {customer_key}: {num_orders} orders")
+                    
+                    self.logger.info(f"Generated {frequent_orders_count} orders for {num_frequent} frequent shoppers")
+            
+            # Generate remaining orders using normal distribution
+            remaining_orders = max(0, incremental.new_orders - frequent_orders_count)
+            if remaining_orders > 0:
+                sales = self._generate_sales(
+                    dimension_keys=dimension_keys,
+                    count=remaining_orders,
+                    start_date=start,
+                    end_date=end,
+                    customer_selector=selector
+                )
+                result.add_fact(sales)
+                all_sales_keys.extend(sales.surrogate_keys)
+            
+            self._update_keys("fact_sales", all_sales_keys)
+            
+            # Generate order items for all orders
             product_keys = dimension_keys.get("dim_products", [])
             order_items = self._generate_order_items(
-                sale_keys=sales.surrogate_keys,
+                sale_keys=all_sales_keys,
                 product_keys=product_keys
             )
             result.add_fact(order_items)

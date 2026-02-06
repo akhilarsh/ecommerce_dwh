@@ -93,6 +93,12 @@ incremental:
   # Set to 0 to disable random exclusion
   exclude_random_customers: ${DATAGEN_EXCLUDE_RANDOM_CUSTOMERS || 10}
   
+  # Frequent shoppers - guarantee some customers get multiple orders
+  # These customers will be identifiable as repeat/frequent buyers in analytics
+  frequent_shopper_count: ${DATAGEN_FREQUENT_SHOPPERS || 5}
+  frequent_shopper_min_orders: ${DATAGEN_FREQUENT_MIN_ORDERS || 3}
+  frequent_shopper_max_orders: ${DATAGEN_FREQUENT_MAX_ORDERS || 5}
+  
   # Inventory snapshot (generated for end_date only)
   # Set to true to capture point-in-time inventory during incremental
   # Records = products × stores (e.g., 5000 × 10 = 5000 per snapshot)

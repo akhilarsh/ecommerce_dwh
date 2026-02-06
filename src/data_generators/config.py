@@ -104,6 +104,10 @@ class IncrementalConfig:
     excluded_customer_keys: Optional[List[int]] = None
     # Random exclusion - randomly exclude N existing customers from new orders
     exclude_random_customers: int = 0
+    # Frequent shoppers - guarantee some customers get multiple orders
+    frequent_shopper_count: int = 0
+    frequent_shopper_min_orders: int = 2
+    frequent_shopper_max_orders: int = 5
     # Store opening
     employees_per_store: int = 5
     include_initial_inventory: bool = True
@@ -253,6 +257,10 @@ def _parse_incremental(data: Dict[str, Any]) -> IncrementalConfig:
         # Customer exclusion
         excluded_customer_keys=_parse_int_list(section.get("excluded_customer_keys")),
         exclude_random_customers=_parse_int(section.get("exclude_random_customers"), 0),
+        # Frequent shoppers
+        frequent_shopper_count=_parse_int(section.get("frequent_shopper_count"), 0),
+        frequent_shopper_min_orders=_parse_int(section.get("frequent_shopper_min_orders"), 2),
+        frequent_shopper_max_orders=_parse_int(section.get("frequent_shopper_max_orders"), 5),
         # Store opening
         employees_per_store=_parse_int(section.get("employees_per_store") or store_opening.get("employees_per_store"), 5),
         include_initial_inventory=_parse_bool(section.get("include_initial_inventory") if section.get("include_initial_inventory") is not None else store_opening.get("include_initial_inventory"), True),
