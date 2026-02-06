@@ -6,7 +6,7 @@ according to configurable ratios.
 """
 
 import random
-from typing import List, Optional
+from typing import List, Optional, Set
 
 
 class CustomerSelector:
@@ -20,16 +20,18 @@ class CustomerSelector:
         selector = CustomerSelector(
             existing_keys=[1, 2, 3],
             new_keys=[100, 101],
-            existing_ratio=0.8
+            existing_ratio=0.8,
+            excluded_keys=[2]  # Customer 2 won't receive new orders
         )
-        customer_key = selector.select()  # 80% chance of existing
+        customer_key = selector.select()  # 80% chance of existing (excluding 2)
     """
     
     def __init__(
         self,
         existing_keys: Optional[List[int]] = None,
         new_keys: Optional[List[int]] = None,
-        existing_ratio: float = 0.8
+        existing_ratio: float = 0.8,
+        excluded_keys: Optional[List[int]] = None
     ):
         """
         Initialize the selector.
@@ -38,8 +40,11 @@ class CustomerSelector:
             existing_keys: List of existing customer keys
             new_keys: List of newly created customer keys
             existing_ratio: Probability of selecting from existing (0.0-1.0)
+            excluded_keys: List of customer keys to exclude from selection
         """
-        self.existing_keys = existing_keys or []
+        self._excluded: Set[int] = set(excluded_keys or [])
+        # Filter out excluded keys from existing
+        self.existing_keys = [k for k in (existing_keys or []) if k not in self._excluded]
         self.new_keys = new_keys or []
         self.existing_ratio = max(0.0, min(1.0, existing_ratio))
     

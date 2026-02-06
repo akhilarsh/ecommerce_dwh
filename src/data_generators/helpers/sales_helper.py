@@ -346,10 +346,22 @@ class SalesHelper(BaseHelper):
         # Remove new keys from existing if they were added
         existing_keys = [k for k in existing_keys if k not in new_customer_keys]
         
+        # Build exclusion list: explicit + random
+        excluded_keys = list(incremental.excluded_customer_keys or [])
+        if incremental.exclude_random_customers > 0 and existing_keys:
+            # Randomly select N customers to exclude (that aren't already excluded)
+            available_for_exclusion = [k for k in existing_keys if k not in excluded_keys]
+            num_to_exclude = min(incremental.exclude_random_customers, len(available_for_exclusion))
+            if num_to_exclude > 0:
+                random_excluded = random.sample(available_for_exclusion, num_to_exclude)
+                excluded_keys.extend(random_excluded)
+                self.logger.info(f"Randomly excluded {num_to_exclude} customers: {random_excluded}")
+        
         selector = CustomerSelector(
             existing_keys=existing_keys,
             new_keys=new_customer_keys,
-            existing_ratio=incremental.existing_customer_ratio
+            existing_ratio=incremental.existing_customer_ratio,
+            excluded_keys=excluded_keys if excluded_keys else None
         )
         
         # Get dimension keys

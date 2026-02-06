@@ -83,6 +83,16 @@ incremental:
   max_items_per_order: ${DATAGEN_MAX_ITEMS_PER_ORDER || 5}
   existing_customer_ratio: ${DATAGEN_EXISTING_CUSTOMER_RATIO || 0.4}
   
+  # Excluded customers - these won't receive new orders during incremental
+  # Comma-separated list of customer_key values, or empty to include all
+  # Example: "1,2,3" or via env: DATAGEN_EXCLUDED_CUSTOMERS=1,2,3
+  excluded_customer_keys: ${DATAGEN_EXCLUDED_CUSTOMERS || }
+  
+  # Random exclusion - randomly exclude N existing customers from new orders
+  # These customers will have no new purchases in incremental data
+  # Set to 0 to disable random exclusion
+  exclude_random_customers: ${DATAGEN_EXCLUDE_RANDOM_CUSTOMERS || 10}
+  
   # Inventory snapshot (generated for end_date only)
   # Set to true to capture point-in-time inventory during incremental
   # Records = products × stores (e.g., 5000 × 10 = 5000 per snapshot)

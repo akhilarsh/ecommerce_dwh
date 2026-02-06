@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -100,6 +100,10 @@ class IncrementalConfig:
     min_items_per_order: int = 1
     max_items_per_order: int = 5
     existing_customer_ratio: float = 0.8
+    # Customer exclusion - these customers won't receive new orders
+    excluded_customer_keys: Optional[List[int]] = None
+    # Random exclusion - randomly exclude N existing customers from new orders
+    exclude_random_customers: int = 0
     # Store opening
     employees_per_store: int = 5
     include_initial_inventory: bool = True
@@ -212,6 +216,20 @@ def _parse_volumes(data: Dict[str, Any]) -> VolumesConfig:
     )
 
 
+def _parse_int_list(value: Any) -> Optional[List[int]]:
+    """Parse a list of integers from string or list."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return [_parse_int(v, 0) for v in value]
+    if isinstance(value, str):
+        # Support comma-separated string: "1,2,3" or "1, 2, 3"
+        if not value.strip():
+            return None
+        return [_parse_int(v.strip(), 0) for v in value.split(",") if v.strip()]
+    return None
+
+
 def _parse_incremental(data: Dict[str, Any]) -> IncrementalConfig:
     """Parse incremental config from YAML data."""
     section = data.get("incremental", {})
@@ -232,6 +250,9 @@ def _parse_incremental(data: Dict[str, Any]) -> IncrementalConfig:
         min_items_per_order=_parse_int(section.get("min_items_per_order") or daily.get("min_items_per_order"), 1),
         max_items_per_order=_parse_int(section.get("max_items_per_order") or daily.get("max_items_per_order"), 5),
         existing_customer_ratio=_parse_float(section.get("existing_customer_ratio") or daily.get("existing_customer_ratio"), 0.8),
+        # Customer exclusion
+        excluded_customer_keys=_parse_int_list(section.get("excluded_customer_keys")),
+        exclude_random_customers=_parse_int(section.get("exclude_random_customers"), 0),
         # Store opening
         employees_per_store=_parse_int(section.get("employees_per_store") or store_opening.get("employees_per_store"), 5),
         include_initial_inventory=_parse_bool(section.get("include_initial_inventory") if section.get("include_initial_inventory") is not None else store_opening.get("include_initial_inventory"), True),
