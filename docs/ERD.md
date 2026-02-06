@@ -11,27 +11,43 @@ erDiagram
         DATE full_date
         NUMBER day_of_week
         VARCHAR day_name
-        NUMBER quarter
-        NUMBER year
+        NUMBER day_of_month
+        NUMBER day_of_year
+        NUMBER week_of_year
+        NUMBER month_number
+        VARCHAR month_name
+        VARCHAR month_abbr
+        NUMBER quarter_number
+        NUMBER calendar_year
         BOOLEAN is_weekend
         BOOLEAN is_holiday
+        NUMBER fiscal_year
+        NUMBER fiscal_quarter
     }
 
     dim_time {
         NUMBER time_key PK
         TIME time_value
-        NUMBER hour
-        NUMBER minute
-        VARCHAR day_period
-        BOOLEAN business_hour
+        NUMBER hour_24
+        NUMBER minute_of_hour
+        NUMBER second_of_minute
+        VARCHAR am_pm
+        NUMBER hour_12
+        VARCHAR day_part
+        BOOLEAN is_business_hours
+        BOOLEAN is_peak_shopping
     }
 
     dim_channels {
         NUMBER channel_key PK
         VARCHAR channel_id
         VARCHAR channel_name
+        VARCHAR channel_code
         VARCHAR channel_type
+        VARCHAR description
         BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_stores {
@@ -39,9 +55,23 @@ erDiagram
         VARCHAR store_id
         VARCHAR store_name
         VARCHAR store_type
+        VARCHAR address_line1
+        VARCHAR address_line2
         VARCHAR city
         VARCHAR state
+        VARCHAR postal_code
         VARCHAR country
+        VARCHAR region
+        VARCHAR phone_number
+        VARCHAR email
+        DATE opening_date
+        DATE closing_date
+        NUMBER square_footage
+        BOOLEAN is_active
+        NUMBER latitude
+        NUMBER longitude
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_promotions {
@@ -49,42 +79,67 @@ erDiagram
         VARCHAR promotion_id
         VARCHAR promotion_name
         VARCHAR promotion_type
-        NUMBER discount_percent
+        VARCHAR promotion_code
         DATE start_date
         DATE end_date
+        NUMBER discount_percentage
+        NUMBER discount_amount
+        NUMBER min_purchase_amount
+        NUMBER max_discount_amount
+        BOOLEAN is_stackable
+        BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_payment_methods {
         NUMBER payment_method_key PK
         VARCHAR payment_method_id
         VARCHAR payment_method_name
+        VARCHAR payment_method_code
         VARCHAR payment_type
-        NUMBER processing_fee_percent
+        BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_shipping_methods {
         NUMBER shipping_method_key PK
         VARCHAR shipping_method_id
         VARCHAR shipping_method_name
-        VARCHAR shipping_type
+        VARCHAR shipping_method_code
         VARCHAR carrier
+        NUMBER estimated_days_min
+        NUMBER estimated_days_max
+        NUMBER base_cost
+        BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_product_categories {
         NUMBER category_key PK
         VARCHAR category_id
         VARCHAR category_name
-        VARCHAR subcategory_name
-        VARCHAR category_path
+        NUMBER category_level
         NUMBER parent_category_key
+        VARCHAR category_path
+        BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_customer_segments {
         NUMBER segment_key PK
         VARCHAR segment_id
         VARCHAR segment_name
+        VARCHAR segment_code
+        VARCHAR description
         NUMBER min_lifetime_value
         NUMBER max_lifetime_value
+        BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     %% ===== DIMENSION TABLES (with FK dependencies) =====
@@ -93,12 +148,30 @@ erDiagram
         VARCHAR customer_id
         VARCHAR first_name
         VARCHAR last_name
+        VARCHAR full_name
         VARCHAR email
+        VARCHAR phone_number
+        DATE birth_date
+        VARCHAR gender
+        VARCHAR address_line1
+        VARCHAR address_line2
+        VARCHAR city
+        VARCHAR state
+        VARCHAR postal_code
+        VARCHAR country
+        DATE registration_date
         NUMBER segment_key FK
+        VARCHAR preferred_channel
+        BOOLEAN loyalty_program_member
         VARCHAR loyalty_tier
-        BOOLEAN is_current
+        NUMBER loyalty_points_balance
+        NUMBER lifetime_value
+        BOOLEAN is_active
         DATE effective_date
-        DATE expiration_date
+        DATE end_date
+        BOOLEAN is_current
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_products {
@@ -106,11 +179,19 @@ erDiagram
         VARCHAR product_id
         VARCHAR sku
         VARCHAR product_name
+        VARCHAR brand
         NUMBER category_key FK
+        VARCHAR description
         NUMBER unit_price
-        BOOLEAN is_current
+        NUMBER unit_cost
+        NUMBER weight_kg
+        BOOLEAN is_active
+        BOOLEAN is_discontinued
         DATE effective_date
-        DATE expiration_date
+        DATE end_date
+        BOOLEAN is_current
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     dim_employees {
@@ -118,8 +199,18 @@ erDiagram
         VARCHAR employee_id
         VARCHAR first_name
         VARCHAR last_name
-        VARCHAR job_title
+        VARCHAR full_name
+        VARCHAR email
+        VARCHAR phone_number
+        VARCHAR position
+        VARCHAR department
         NUMBER store_key FK
+        DATE hire_date
+        DATE termination_date
+        NUMBER salary
+        BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     %% ===== FACT TABLES =====
@@ -135,9 +226,17 @@ erDiagram
         NUMBER payment_method_key FK
         NUMBER shipping_method_key FK
         NUMBER employee_key FK
-        NUMBER gross_amount
-        NUMBER net_amount
         NUMBER quantity
+        NUMBER gross_amount
+        NUMBER discount_amount
+        NUMBER net_amount
+        NUMBER tax_amount
+        NUMBER shipping_amount
+        NUMBER total_amount
+        VARCHAR order_status
+        BOOLEAN is_online
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
     }
 
     fact_inventory_snapshots {
@@ -146,8 +245,12 @@ erDiagram
         NUMBER product_key FK
         NUMBER store_key FK
         NUMBER quantity_on_hand
+        NUMBER quantity_reserved
         NUMBER quantity_available
-        BOOLEAN is_stockout
+        NUMBER reorder_point
+        BOOLEAN is_below_reorder_point
+        NUMBER days_of_supply
+        TIMESTAMP_NTZ created_at
     }
 
     fact_customer_interactions {
@@ -159,9 +262,15 @@ erDiagram
         NUMBER channel_key FK
         NUMBER store_key FK
         NUMBER employee_key FK
+        NUMBER product_key FK
         NUMBER sale_key FK
         VARCHAR interaction_type
-        BOOLEAN led_to_purchase
+        VARCHAR device_type
+        VARCHAR session_id
+        VARCHAR page_url
+        NUMBER duration_seconds
+        BOOLEAN is_converted
+        TIMESTAMP_NTZ created_at
     }
 
     fact_loyalty_points {
@@ -173,29 +282,35 @@ erDiagram
         NUMBER sale_key FK
         NUMBER channel_key FK
         VARCHAR transaction_type
-        NUMBER points_amount
+        NUMBER points
+        NUMBER points_balance_after
+        VARCHAR description
+        DATE expiration_date
+        TIMESTAMP_NTZ created_at
     }
 
     %% ===== BRIDGE TABLES =====
     bridge_order_items {
         NUMBER order_item_key PK
-        VARCHAR line_item_id
         NUMBER sale_key FK
         NUMBER product_key FK
+        NUMBER line_number
         NUMBER quantity
         NUMBER unit_price
+        NUMBER discount_amount
         NUMBER line_total
-        BOOLEAN is_returned
+        BOOLEAN is_gift
+        VARCHAR gift_message
+        TIMESTAMP_NTZ created_at
     }
 
     bridge_product_promotions {
         NUMBER product_promotion_key PK
         NUMBER product_key FK
         NUMBER promotion_key FK
-        NUMBER discount_percent
-        NUMBER promotion_price
-        DATE effective_date
-        DATE expiration_date
+        BOOLEAN is_featured
+        NUMBER priority
+        TIMESTAMP_NTZ created_at
     }
 
     %% ===== RELATIONSHIPS =====
@@ -228,6 +343,7 @@ erDiagram
     fact_customer_interactions }o--|| dim_channels : "channel_key"
     fact_customer_interactions }o--o| dim_stores : "store_key"
     fact_customer_interactions }o--o| dim_employees : "employee_key"
+    fact_customer_interactions }o--o| dim_products : "product_key"
     fact_customer_interactions }o--o| fact_sales : "sale_key"
 
     %% fact_loyalty_points relationships
@@ -266,7 +382,7 @@ erDiagram
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
-| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments` | Each customer belongs to one segment. SCD Type 2 table - tracks historical changes via `effective_date`, `expiration_date`, `is_current`. Multiple rows per customer_id possible. |
+| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments` | Each customer belongs to one segment. SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
 | __dim_products__ | `product_key` | `category_key` → `dim_product_categories` | Each product belongs to one category. SCD Type 2 table - tracks price/attribute changes over time. Multiple rows per product_id possible. |
 | __dim_employees__ | `employee_key` | `store_key` → `dim_stores` | Each employee works at one store. Links sales associates to physical locations. |
 
@@ -292,6 +408,7 @@ erDiagram
 | | | `channel_key` → `dim_channels` (required) | Which channel. |
 | | | `store_key` → `dim_stores` (optional) | Physical location (if applicable). |
 | | | `employee_key` → `dim_employees` (optional) | Who assisted. |
+| | | `product_key` → `dim_products` (optional) | Product related to interaction (if applicable). |
 | | | `sale_key` → `fact_sales` (optional) | __Fact-to-fact link__ - links interaction to resulting purchase. |
 | __fact_loyalty_points__ | `loyalty_transaction_key` | `date_key` → `dim_dates` (required) | Points earned/redeemed. |
 | | | `time_key` → `dim_time` (optional) | When during the day. |
@@ -314,9 +431,9 @@ erDiagram
 |------------|-------|-----------|
 | Dimensions (no FK) | 9 | 0 |
 | Dimensions (with FK) | 3 | 3 |
-| Fact Tables | 4 | 23 |
+| Fact Tables | 4 | 24 |
 | Bridge Tables | 2 | 4 |
-| **Total** | **18** | **30** |
+| **Total** | **18** | **31** |
 
 ---
 
@@ -333,21 +450,21 @@ erDiagram
 | __dim_customers__ | WHO bought | Sarah Chen, customer_id=`C-10042`, Gold tier, segment_key -> "High Value". SCD Type 2 means if she later upgrades to Platinum, we keep both versions with effective/expiration dates. |
 | __dim_customer_segments__ | Customer classification | "High Value" segment -- LTV between $5,000-$25,000, min 12 purchases/year. Sarah's segment_key in dim_customers points here. |
 | __dim_dates__ | WHEN (calendar) | date_key=`20251128`, Black Friday, Q4, is_holiday=TRUE, is_weekend=FALSE. Every fact table references this same row for Nov 28. |
-| __dim_time__ | WHEN (time of day) | time_key=`1435`, hour=14, day_period="Afternoon", business_hour=TRUE. |
+| __dim_time__ | WHEN (time of day) | time_key=`1435`, hour_24=14, day_part="Afternoon", is_business_hours=TRUE. |
 | __dim_stores__ | WHERE | "Downtown Flagship", store_type="Flagship", city="San Francisco". The employee and the in-store interaction both reference this. |
 | __dim_channels__ | HOW (sales channel) | "In-Store", channel_type="Physical". If Sarah had bought online, this would be "Web" with channel_type="Digital". |
-| __dim_products__ | WHAT | Two rows: Sony WH-1000XM5 (product_key=501, unit_price=$349.99, category_key->Electronics>Audio) and USB-C Cable (product_key=892, unit_price=$14.99). SCD Type 2 tracks price history -- if Sony raises the price next month, the old row gets expiration_date set. |
+| __dim_products__ | WHAT | Two rows: Sony WH-1000XM5 (product_key=501, unit_price=$349.99, category_key->Electronics>Audio) and USB-C Cable (product_key=892, unit_price=$14.99). SCD Type 2 tracks price history -- if Sony raises the price next month, the old row gets end_date set. |
 | __dim_product_categories__ | Product hierarchy | category_path="Electronics > Audio > Headphones" for the Sony. Enables roll-up queries: "How did all Audio products perform on Black Friday?" |
-| __dim_promotions__ | Discount applied | "Black Friday 20% Off Electronics", promotion_type="Percentage", discount_percent=20, start_date=Nov 28, end_date=Nov 30. |
-| __dim_payment_methods__ | Payment used | "Apple Pay", payment_type="Digital Wallet", processing_fee_percent=2.9%. |
+| __dim_promotions__ | Discount applied | "Black Friday 20% Off Electronics", promotion_type="Percentage", discount_percentage=20, start_date=Nov 28, end_date=Nov 30. |
+| __dim_payment_methods__ | Payment used | "Apple Pay", payment_type="Digital Wallet". |
 | __dim_shipping_methods__ | Delivery method | "Express Shipping", carrier="FedEx", estimated_days_min=1, estimated_days_max=2, base_cost=$12.99. |
-| __dim_employees__ | WHO assisted | "James Rodriguez", job_title="Sales Associate", store_key->Downtown Flagship. |
+| __dim_employees__ | WHO assisted | "James Rodriguez", position="Sales Associate", store_key->Downtown Flagship. |
 | __fact_sales__ | The transaction | sale_key=98765, order_id=`ORD-2025-44210`. gross_amount=$364.98, discount_amount=$69.99 (20% off headphones only), tax_amount=$25.75, shipping_cost=$12.99, net_amount=$333.73. Links to all 9 dimensions via foreign keys. |
 | __bridge_order_items__ | Line-level detail | __Line 1:__ product_key=501 (Sony), qty=1, unit_price=$349.99, discount=$69.99, line_total=$280.00. __Line 2:__ product_key=892 (USB-C), qty=1, unit_price=$14.99, discount=$0, line_total=$14.99. This is how a single sale resolves the many-to-many between orders and products. |
-| __bridge_product_promotions__ | Which products qualify | product_key=501 + promotion_key->"Black Friday 20%", discount_percent=20. The USB-C cable isn't in this bridge table (not eligible). |
-| __fact_customer_interactions__ | Customer touchpoint | interaction_type="Store Visit", duration=45 min, products_viewed=8, items_added_to_cart=2, led_to_purchase=TRUE, sale_key->98765. Tracks that this visit converted. |
-| __fact_inventory_snapshots__ | Stock impact | End-of-day snapshot: Sony headphones at Downtown Flagship went from quantity_on_hand=15 to 14. USB-C cable from 200 to 199. is_stockout=FALSE for both. |
-| __fact_loyalty_points__ | Rewards earned | transaction_type="Earned", points_amount=668 (normally 334 but points_multiplier=2.0 for Black Friday), points_balance_after=12,450, sale_key->98765. |
+| __bridge_product_promotions__ | Which products qualify | product_key=501 + promotion_key->"Black Friday 20%", is_featured=TRUE. The USB-C cable isn't in this bridge table (not eligible). |
+| __fact_customer_interactions__ | Customer touchpoint | interaction_type="Store Visit", duration_seconds=2700, is_converted=TRUE, sale_key->98765. Tracks that this visit converted. |
+| __fact_inventory_snapshots__ | Stock impact | End-of-day snapshot: Sony headphones at Downtown Flagship went from quantity_on_hand=15 to 14. USB-C cable from 200 to 199. is_below_reorder_point=FALSE for both. |
+| __fact_loyalty_points__ | Rewards earned | transaction_type="Earned", points=668 (normally 334 but 2x for Black Friday), points_balance_after=12,450, sale_key->98765. |
 
 ### Key Relationship Patterns
 
@@ -359,7 +476,7 @@ __Same pattern for promotions:__ One promotion applies to many products, one pro
 
 __Fact-to-fact link:__ `fact_customer_interactions.sale_key` and `fact_loyalty_points.sale_key` both reference `fact_sales`, enabling queries like _"For interactions that led to purchases, how many loyalty points were earned?"_
 
-__SCD Type 2 (dim_customers, dim_products):__ When Sarah's loyalty tier changes from Gold to Platinum, a new row is inserted with `is_current=TRUE` and a new `effective_date`. The old row gets `expiration_date` set and `is_current=FALSE`. Historical sales still join to the old row (Gold tier at time of purchase), while current reports see Platinum. Same logic applies when product prices change.
+__SCD Type 2 (dim_customers, dim_products):__ When Sarah's loyalty tier changes from Gold to Platinum, a new row is inserted with `is_current=TRUE` and a new `effective_date`. The old row gets `end_date` set and `is_current=FALSE`. Historical sales still join to the old row (Gold tier at time of purchase), while current reports see Platinum. Same logic applies when product prices change.
 
 __Dimension-to-dimension:__ `dim_customers -> dim_customer_segments`, `dim_products -> dim_product_categories`, `dim_employees -> dim_stores` -- these model hierarchical/classification relationships within the dimensional layer itself.
 
