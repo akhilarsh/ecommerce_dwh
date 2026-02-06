@@ -6,11 +6,17 @@ Environment variables and CLI args can override YAML values.
 
 Priority (highest to lowest):
 1. CLI arguments
-2. Environment variables (DATAGEN_* prefix)
-3. datagen_config.yaml
+2. Environment variables (via ${VAR || default} syntax in YAML)
+3. Default values in YAML
+
+The YAML file supports environment variable substitution:
+  ${ENV_VAR || default_value}
+  - If ENV_VAR is set in environment, its value is used
+  - Otherwise, default_value is used
 """
 
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -19,6 +25,42 @@ from typing import Any, Dict, Optional
 import yaml
 
 from ..utils.logger import get_logger
+
+
+# =============================================================================
+# Environment variable substitution in YAML values
+# =============================================================================
+
+# Pattern to match ${ENV_VAR || default_value}
+ENV_PATTERN = re.compile(r'\$\{([^}|]+)\s*\|\|\s*([^}]+)\}')
+
+
+def _substitute_env_vars(value: Any) -> Any:
+    """
+    Substitute environment variables in a value.
+    
+    Supports format: ${ENV_VAR || default_value}
+    - If ENV_VAR is set, returns its value
+    - Otherwise, returns default_value
+    
+    Args:
+        value: Value to process (string, dict, list, or other)
+        
+    Returns:
+        Value with environment variables substituted
+    """
+    if isinstance(value, str):
+        match = ENV_PATTERN.match(value.strip())
+        if match:
+            env_var = match.group(1).strip()
+            default = match.group(2).strip()
+            return os.getenv(env_var, default)
+        return value
+    elif isinstance(value, dict):
+        return {k: _substitute_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [_substitute_env_vars(item) for item in value]
+    return value
 
 
 # =============================================================================
@@ -117,25 +159,56 @@ def _parse_date(value: Any) -> Optional[date]:
     return None
 
 
+def _parse_int(value: Any, default: int = 0) -> int:
+    """Parse integer from string or number."""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def _parse_float(value: Any, default: float = 0.0) -> float:
+    """Parse float from string or number."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def _parse_bool(value: Any, default: bool = False) -> bool:
+    """Parse boolean from string or bool."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ("true", "1", "yes", "on")
+    return default
+
+
 def _parse_volumes(data: Dict[str, Any]) -> VolumesConfig:
     """Parse volumes from YAML data."""
     # Support both 'initial_load' and 'volumes' keys
     section = data.get("initial_load", data.get("volumes", {}))
     return VolumesConfig(
-        customers=section.get("customers", 0),
-        products=section.get("products", 0),
-        stores=section.get("stores", 0),
-        employees=section.get("employees", 0),
-        promotions=section.get("promotions", 0),
-        channels=section.get("channels", 0),
-        payment_methods=section.get("payment_methods", 0),
-        shipping_methods=section.get("shipping_methods", 0),
-        customer_segments=section.get("customer_segments", 0),
-        product_categories=section.get("product_categories", 0),
-        sales=section.get("sales", 0),
-        inventory_snapshots=section.get("inventory_snapshots", 0),
-        customer_interactions=section.get("customer_interactions", 0),
-        loyalty_transactions=section.get("loyalty_transactions", 0),
+        customers=_parse_int(section.get("customers"), 0),
+        products=_parse_int(section.get("products"), 0),
+        stores=_parse_int(section.get("stores"), 0),
+        employees=_parse_int(section.get("employees"), 0),
+        promotions=_parse_int(section.get("promotions"), 0),
+        channels=_parse_int(section.get("channels"), 0),
+        payment_methods=_parse_int(section.get("payment_methods"), 0),
+        shipping_methods=_parse_int(section.get("shipping_methods"), 0),
+        customer_segments=_parse_int(section.get("customer_segments"), 0),
+        product_categories=_parse_int(section.get("product_categories"), 0),
+        sales=_parse_int(section.get("sales"), 0),
+        inventory_snapshots=_parse_int(section.get("inventory_snapshots"), 0),
+        customer_interactions=_parse_int(section.get("customer_interactions"), 0),
+        loyalty_transactions=_parse_int(section.get("loyalty_transactions"), 0),
     )
 
 
@@ -152,19 +225,19 @@ def _parse_incremental(data: Dict[str, Any]) -> IncrementalConfig:
         start_date=_parse_date(section.get("start_date")),
         end_date=_parse_date(section.get("end_date")),
         # Volume counts
-        new_customers=section.get("new_customers", daily.get("new_customers", 0)),
-        new_orders=section.get("new_orders", daily.get("new_orders", 0)),
-        new_interactions=section.get("new_interactions", daily.get("new_interactions", 0)),
-        new_loyalty_transactions=section.get("new_loyalty_transactions", daily.get("new_loyalty_transactions", 0)),
-        min_items_per_order=section.get("min_items_per_order", daily.get("min_items_per_order", 1)),
-        max_items_per_order=section.get("max_items_per_order", daily.get("max_items_per_order", 5)),
-        existing_customer_ratio=section.get("existing_customer_ratio", daily.get("existing_customer_ratio", 0.8)),
+        new_customers=_parse_int(section.get("new_customers") or daily.get("new_customers"), 0),
+        new_orders=_parse_int(section.get("new_orders") or daily.get("new_orders"), 0),
+        new_interactions=_parse_int(section.get("new_interactions") or daily.get("new_interactions"), 0),
+        new_loyalty_transactions=_parse_int(section.get("new_loyalty_transactions") or daily.get("new_loyalty_transactions"), 0),
+        min_items_per_order=_parse_int(section.get("min_items_per_order") or daily.get("min_items_per_order"), 1),
+        max_items_per_order=_parse_int(section.get("max_items_per_order") or daily.get("max_items_per_order"), 5),
+        existing_customer_ratio=_parse_float(section.get("existing_customer_ratio") or daily.get("existing_customer_ratio"), 0.8),
         # Store opening
-        employees_per_store=section.get("employees_per_store", store_opening.get("employees_per_store", 5)),
-        include_initial_inventory=section.get("include_initial_inventory", store_opening.get("include_initial_inventory", True)),
+        employees_per_store=_parse_int(section.get("employees_per_store") or store_opening.get("employees_per_store"), 5),
+        include_initial_inventory=_parse_bool(section.get("include_initial_inventory") if section.get("include_initial_inventory") is not None else store_opening.get("include_initial_inventory"), True),
         # Promotions
-        discount_min=section.get("discount_min", promotions.get("discount_min", 0.10)),
-        discount_max=section.get("discount_max", promotions.get("discount_max", 0.30)),
+        discount_min=_parse_float(section.get("discount_min") or promotions.get("discount_min"), 0.10),
+        discount_max=_parse_float(section.get("discount_max") or promotions.get("discount_max"), 0.30),
     )
 
 
@@ -184,19 +257,21 @@ def _parse_paths(data: Dict[str, Any]) -> PathsConfig:
     """Parse paths config from YAML data."""
     section = data.get("paths", {})
     return PathsConfig(
-        output_dir=section.get("output_dir", ""),
-        incremental_output_dir=section.get("incremental_output_dir", ""),
-        keys_cache=section.get("keys_cache", ""),
+        output_dir=str(section.get("output_dir", "") or ""),
+        incremental_output_dir=str(section.get("incremental_output_dir", "") or ""),
+        keys_cache=str(section.get("keys_cache", "") or ""),
     )
 
 
 def _parse_settings(data: Dict[str, Any]) -> SettingsConfig:
     """Parse settings config from YAML data."""
     section = data.get("settings", {})
+    seed_val = section.get("seed")
+    seed = _parse_int(seed_val, None) if seed_val is not None else None
     return SettingsConfig(
-        seed=section.get("seed"),
-        validate_integrity=section.get("validate_integrity", True),
-        locale=section.get("locale", "en_US"),
+        seed=seed,
+        validate_integrity=_parse_bool(section.get("validate_integrity"), True),
+        locale=str(section.get("locale", "en_US") or "en_US"),
     )
 
 
@@ -212,65 +287,21 @@ def _config_from_yaml(data: Dict[str, Any]) -> DataGenConfig:
 
 
 # =============================================================================
-# Environment variable overrides
-# =============================================================================
-
-ENV_MAPPINGS = {
-    # Volumes
-    "DATAGEN_CUSTOMERS": ("volumes", "customers", int),
-    "DATAGEN_PRODUCTS": ("volumes", "products", int),
-    "DATAGEN_STORES": ("volumes", "stores", int),
-    "DATAGEN_EMPLOYEES": ("volumes", "employees", int),
-    "DATAGEN_PROMOTIONS": ("volumes", "promotions", int),
-    "DATAGEN_SALES": ("volumes", "sales", int),
-    "DATAGEN_INVENTORY_SNAPSHOTS": ("volumes", "inventory_snapshots", int),
-    "DATAGEN_CUSTOMER_INTERACTIONS": ("volumes", "customer_interactions", int),
-    "DATAGEN_LOYALTY_TRANSACTIONS": ("volumes", "loyalty_transactions", int),
-    # Incremental
-    "DATAGEN_NEW_CUSTOMERS": ("incremental", "new_customers", int),
-    "DATAGEN_NEW_ORDERS": ("incremental", "new_orders", int),
-    "DATAGEN_NEW_INTERACTIONS": ("incremental", "new_interactions", int),
-    "DATAGEN_NEW_LOYALTY": ("incremental", "new_loyalty_transactions", int),
-    "DATAGEN_EXISTING_CUSTOMER_RATIO": ("incremental", "existing_customer_ratio", float),
-    "DATAGEN_EMPLOYEES_PER_STORE": ("incremental", "employees_per_store", int),
-    "DATAGEN_DISCOUNT_MIN": ("incremental", "discount_min", float),
-    "DATAGEN_DISCOUNT_MAX": ("incremental", "discount_max", float),
-    # Settings
-    "DATAGEN_SEED": ("settings", "seed", int),
-    # Paths
-    "DATAGEN_OUTPUT_DIR": ("paths", "output_dir", str),
-    "DATAGEN_INCREMENTAL_OUTPUT_DIR": ("paths", "incremental_output_dir", str),
-    "DATAGEN_KEYS_CACHE": ("paths", "keys_cache", str),
-}
-
-
-def _apply_env_overrides(config: DataGenConfig) -> DataGenConfig:
-    """Apply environment variable overrides to config."""
-    for env_var, (section, attr, converter) in ENV_MAPPINGS.items():
-        value = os.getenv(env_var)
-        if value is not None:
-            section_obj = getattr(config, section)
-            try:
-                setattr(section_obj, attr, converter(value))
-            except (ValueError, TypeError):
-                pass  # Skip invalid values
-    return config
-
-
-# =============================================================================
 # Main config loader
 # =============================================================================
 
 def load_config(config_path: Optional[str] = None) -> DataGenConfig:
     """
-    Load configuration from datagen_config.yaml with environment overrides.
+    Load configuration from datagen_config.yaml with environment variable substitution.
+    
+    The YAML file supports ${ENV_VAR || default} syntax for environment variables.
     
     Args:
         config_path: Optional path to YAML config file.
                     Defaults to src/data_generators/datagen_config.yaml
     
     Returns:
-        DataGenConfig populated from YAML
+        DataGenConfig populated from YAML with env vars substituted
     
     Raises:
         FileNotFoundError: If config file doesn't exist and no path provided
@@ -294,10 +325,10 @@ def load_config(config_path: Optional[str] = None) -> DataGenConfig:
     with open(yaml_path, "r") as f:
         data = yaml.safe_load(f) or {}
     
-    config = _config_from_yaml(data)
+    # Substitute environment variables in YAML values
+    data = _substitute_env_vars(data)
     
-    # Apply environment variable overrides
-    config = _apply_env_overrides(config)
+    config = _config_from_yaml(data)
     
     return config
 

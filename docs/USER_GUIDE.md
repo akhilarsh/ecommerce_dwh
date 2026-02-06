@@ -313,28 +313,30 @@ dwh load-data --mode initial --truncate
 
 ### Configuration File
 
-Data volumes are configured in `src/data_generators/datagen_config.yaml`:
+Data volumes are configured in `src/data_generators/datagen_config.yaml`.
+
+The YAML supports environment variable overrides using `${ENV_VAR || default}` syntax:
 
 ```yaml
 initial_load:
-  customers: 1000
-  products: 500
-  stores: 10
-  employees: 50
-  sales: 5000
-  customer_interactions: 2500
-  loyalty_transactions: 1000
-  date_start: "2025-01-01"
-  date_end: "2026-01-31"
+  customers: ${DATAGEN_CUSTOMERS || 500}
+  products: ${DATAGEN_PRODUCTS || 5000}
+  stores: ${DATAGEN_STORES || 10}
+  sales: ${DATAGEN_SALES || 10000}
+  date_start: ${DATAGEN_DATE_START || 2025-01-01}
+  date_end: ${DATAGEN_DATE_END || 2026-01-31}
 
 incremental:
-  start_date: "2026-02-01"
-  end_date: "2026-02-04"
-  new_customers: 50
-  new_orders: 500
+  start_date: ${DATAGEN_START_DATE || 2026-02-01}
+  end_date: ${DATAGEN_END_DATE || 2026-02-06}
+  new_customers: ${DATAGEN_NEW_CUSTOMERS || 5}
+  new_orders: ${DATAGEN_NEW_ORDERS || 50}
 ```
 
-CLI arguments override config values.
+**Override priority (highest to lowest):**
+1. CLI arguments (`--customers=500`)
+2. Environment variables (`DATAGEN_CUSTOMERS=500`)
+3. Default values in YAML
 
 ---
 

@@ -279,6 +279,106 @@ def create_and_load_command(
     return True
 
 
+def generate_and_load_command(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    new_customers: Optional[int] = None,
+    new_orders: Optional[int] = None,
+    new_interactions: Optional[int] = None,
+    new_loyalty: Optional[int] = None,
+    seed: Optional[int] = None,
+    truncate: bool = False,
+    validate: bool = True,
+    verbose: bool = False
+) -> bool:
+    """
+    Generate incremental data and load it into the warehouse.
+    
+    Combines generate-incremental + load-data into a single workflow.
+    Uses dates from config or CLI overrides.
+    
+    Args:
+        start_date: Start date YYYY-MM-DD (from config if not provided)
+        end_date: End date YYYY-MM-DD (from config if not provided)
+        new_customers: Number of new customers (from config if not provided)
+        new_orders: Number of new orders (from config if not provided)
+        new_interactions: Number of new interactions (from config if not provided)
+        new_loyalty: Number of new loyalty transactions (from config if not provided)
+        seed: Random seed (from config if not provided)
+        truncate: Truncate tables before loading
+        validate: Validate referential integrity
+        verbose: Enable verbose output
+        
+    Returns:
+        True if successful
+    """
+    from src.cli.commands.generate_data import generate_incremental_command
+    from src.cli.commands.load_data import load_data_command
+    from src.data_generators.config import load_config
+    from datetime import datetime, date
+    
+    # Load config to get dates for display
+    cfg = load_config()
+    
+    # Parse dates
+    if start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    else:
+        start = cfg.incremental.start_date or date.today()
+    
+    if end_date:
+        end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    else:
+        end = cfg.incremental.end_date or date.today()
+    
+    console.print("\n[bold blue]═══════════════════════════════════════════════════════════════[/bold blue]")
+    console.print("[bold blue]              GENERATE AND LOAD INCREMENTAL DATA[/bold blue]")
+    console.print("[bold blue]═══════════════════════════════════════════════════════════════[/bold blue]\n")
+    
+    console.print(f"[dim]Date range: {start} to {end}[/dim]\n")
+    
+    # Step 1: Generate incremental data
+    console.print("[bold cyan]Step 1/2: Generating incremental data...[/bold cyan]\n")
+    
+    generate_success = generate_incremental_command(
+        start_date=start_date,
+        end_date=end_date,
+        new_customers=new_customers,
+        new_orders=new_orders,
+        new_interactions=new_interactions,
+        new_loyalty=new_loyalty,
+        seed=seed,
+        validate=validate,
+        verbose=verbose
+    )
+    
+    if not generate_success:
+        console.print("[bold red]✗ Data generation failed. Aborting.[/bold red]\n")
+        return False
+    
+    # Step 2: Load the generated data
+    console.print("\n[bold cyan]Step 2/2: Loading data into Snowflake...[/bold cyan]\n")
+    
+    # The generated data is in a date-ranged folder - load_data will auto-detect the latest
+    load_success = load_data_command(
+        mode="incremental",
+        truncate=truncate,
+        validate=validate,
+        verbose=verbose
+    )
+    
+    if not load_success:
+        console.print("[bold red]✗ Data load failed.[/bold red]\n")
+        return False
+    
+    console.print("\n[bold blue]═══════════════════════════════════════════════════════════════[/bold blue]")
+    console.print("[bold green]✓ GENERATE AND LOAD COMPLETED SUCCESSFULLY[/bold green]")
+    console.print(f"[dim]Date range: {start} to {end}[/dim]")
+    console.print("[bold blue]═══════════════════════════════════════════════════════════════[/bold blue]\n")
+    
+    return True
+
+
 def _display_workflow_result(result: "WorkflowResult") -> None:
     """Display workflow result summary."""
     table = Table(title="Workflow Result", show_header=True)

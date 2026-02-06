@@ -143,82 +143,68 @@ src/data_generators/
 
 ### datagen_config.yaml
 
+The YAML supports environment variable overrides using `${ENV_VAR || default}` syntax:
+
 ```yaml
 # =============================================================================
 # Initial Load - Bulk data generation for fresh warehouse setup
 # =============================================================================
 initial_load:
-  customers: 1000
-  products: 500
-  stores: 10
-  employees: 50
-  promotions: 20
-  channels: 6
-  payment_methods: 10
-  shipping_methods: 8
-  customer_segments: 7
-  product_categories: 100
-  sales: 5000
-  inventory_snapshots: 30
-  customer_interactions: 2500
-  loyalty_transactions: 1000
-  date_start: "2025-01-01"
-  date_end: "2026-01-31"
+  customers: ${DATAGEN_CUSTOMERS || 500}
+  products: ${DATAGEN_PRODUCTS || 5000}
+  stores: ${DATAGEN_STORES || 10}
+  employees: ${DATAGEN_EMPLOYEES || 50}
+  promotions: ${DATAGEN_PROMOTIONS || 20}
+  sales: ${DATAGEN_SALES || 10000}
+  customer_interactions: ${DATAGEN_CUSTOMER_INTERACTIONS || 5000}
+  loyalty_transactions: ${DATAGEN_LOYALTY_TRANSACTIONS || 3000}
+  date_start: ${DATAGEN_DATE_START || 2025-01-01}
+  date_end: ${DATAGEN_DATE_END || 2026-01-31}
 
 # =============================================================================
 # Incremental Settings - Operations and event-driven generation
 # =============================================================================
 incremental:
-  # Date range for incremental data (entries distributed across this range)
-  start_date: "2026-02-01"
-  end_date: "2026-02-04"
-  
-  # Volume counts
-  new_customers: 50
-  new_orders: 500
-  new_interactions: 100
-  new_loyalty_transactions: 50
-  min_items_per_order: 1
-  max_items_per_order: 5
-  existing_customer_ratio: 0.8   # 80% orders from existing customers
-  
-  # Store opening defaults
-  employees_per_store: 5
-  include_initial_inventory: true
-  
-  # Promotion campaign defaults
-  discount_min: 0.10
-  discount_max: 0.30
+  start_date: ${DATAGEN_START_DATE || 2026-02-01}
+  end_date: ${DATAGEN_END_DATE || 2026-02-06}
+  new_customers: ${DATAGEN_NEW_CUSTOMERS || 5}
+  new_orders: ${DATAGEN_NEW_ORDERS || 50}
+  new_interactions: ${DATAGEN_NEW_INTERACTIONS || 50}
+  new_loyalty_transactions: ${DATAGEN_NEW_LOYALTY || 50}
+  existing_customer_ratio: ${DATAGEN_EXISTING_CUSTOMER_RATIO || 0.4}
+  employees_per_store: ${DATAGEN_EMPLOYEES_PER_STORE || 5}
+  discount_min: ${DATAGEN_DISCOUNT_MIN || 0.10}
+  discount_max: ${DATAGEN_DISCOUNT_MAX || 0.30}
 
 # =============================================================================
 # Date Range (for dim_dates generation)
 # =============================================================================
 dates:
-  start: "2025-01-01"
-  end: "2026-12-31"
+  start: ${DATAGEN_DATES_START || 2025-01-01}
+  end: ${DATAGEN_DATES_END || 2026-12-31}
 
 # =============================================================================
 # Output Paths
 # =============================================================================
 paths:
-  output_dir: "outputs/initial_data"
-  incremental_output_dir: "outputs/incremental_data"
-  keys_cache: "outputs/keys_cache.json"
+  output_dir: ${DATAGEN_OUTPUT_DIR || outputs/initial_data}
+  incremental_output_dir: ${DATAGEN_INCREMENTAL_OUTPUT_DIR || outputs/incremental_data}
+  keys_cache: ${DATAGEN_KEYS_CACHE || outputs/keys_cache.json}
 
 # =============================================================================
 # Generation Settings
 # =============================================================================
 settings:
-  seed: 42
-  validate_integrity: true
-  locale: "en_US"
+  seed: ${DATAGEN_SEED || 42}
+  validate_integrity: ${DATAGEN_VALIDATE_INTEGRITY || true}
+  locale: ${DATAGEN_LOCALE || en_US}
 ```
 
 ### Configuration Priority
 
 1. **CLI arguments** (highest priority)
-2. **Environment variables** (DATAGEN_* prefix)
-3. **datagen_config.yaml** (default values)
+2. **Environment variables** (via `${VAR || default}` syntax in YAML)
+3. **Default values** in YAML
 
 ## CLI Commands
 

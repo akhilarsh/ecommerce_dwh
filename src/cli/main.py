@@ -525,7 +525,7 @@ def create_and_load(
       2. If new tables: generate data, load only new tables
       3. If no new tables: exit (nothing to do)
     
-    For adding data to existing tables, use generate-incremental + load-data.
+    For adding data to existing tables, use generate-and-load.
     """
     from src.cli.commands.workflows import create_and_load_command
     dwh = require_dwh_platform(ctx)
@@ -539,6 +539,57 @@ def create_and_load(
         stores=stores,
         employees=employees,
         seed=seed,
+        verbose=ctx.obj.get("verbose", False)
+    )
+    sys.exit(0 if success else 1)
+
+
+@cli.command("generate-and-load")
+@click.option("--start-date", "-s", default=None, help="Start date (YYYY-MM-DD), defaults to config")
+@click.option("--end-date", "-e", default=None, help="End date (YYYY-MM-DD), defaults to config")
+@click.option("--customers", default=None, type=int, help="New customers (default from config)")
+@click.option("--orders", default=None, type=int, help="New orders (default from config)")
+@click.option("--interactions", default=None, type=int, help="New interactions (default from config)")
+@click.option("--loyalty", default=None, type=int, help="New loyalty txns (default from config)")
+@click.option("--seed", default=None, type=int, help="Random seed (default from config)")
+@click.option("--truncate", is_flag=True, help="Truncate tables before loading")
+@click.option("--no-validate", is_flag=True, help="Skip referential integrity validation")
+@click.pass_context
+def generate_and_load(
+    ctx: click.Context,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    customers: Optional[int],
+    orders: Optional[int],
+    interactions: Optional[int],
+    loyalty: Optional[int],
+    seed: Optional[int],
+    truncate: bool,
+    no_validate: bool
+):
+    """
+    Generate incremental data and load into warehouse.
+    
+    Combines generate-incremental + load-data into a single workflow.
+    Uses dates from datagen_config.yaml or CLI overrides.
+    
+    \b
+    Example:
+      dwh generate-and-load                          # Use config dates
+      dwh generate-and-load -s 2026-02-01 -e 2026-02-06  # Override dates
+    """
+    from src.cli.commands.workflows import generate_and_load_command
+    dwh = require_dwh_platform(ctx)
+    success = generate_and_load_command(
+        start_date=start_date,
+        end_date=end_date,
+        new_customers=customers,
+        new_orders=orders,
+        new_interactions=interactions,
+        new_loyalty=loyalty,
+        seed=seed,
+        truncate=truncate,
+        validate=not no_validate,
         verbose=ctx.obj.get("verbose", False)
     )
     sys.exit(0 if success else 1)

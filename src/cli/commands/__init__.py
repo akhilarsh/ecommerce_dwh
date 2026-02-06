@@ -15,6 +15,7 @@ from .generate_data import (
     cache_keys_command,
 )
 from .load_data import load_data_command
+from .workflows import generate_and_load_command
 
 __all__ = [
     "test_connection_command",
@@ -29,4 +30,5 @@ __all__ = [
     "generate_promotion_command",
     "cache_keys_command",
     "load_data_command",
+    "generate_and_load_command",
 ]
