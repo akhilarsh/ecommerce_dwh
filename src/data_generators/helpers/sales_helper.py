@@ -96,6 +96,8 @@ class SalesHelper(BaseHelper):
             result.add_fact(loyalty)
             self._update_keys("fact_loyalty_points", loyalty.surrogate_keys)
         
+        self._backfill_lifetime_value(result)
+        
         return result
     
     def _generate_customers(
@@ -288,6 +290,49 @@ class SalesHelper(BaseHelper):
         # For now, return all customers (60% are loyalty members by default)
         return self._get_dimension_keys("dim_customers")
     
+    def _backfill_lifetime_value(self, result: DataGenerationResult) -> None:
+        """
+        Backfill dim_customers.lifetime_value from fact_sales totals.
+        
+        Aggregates total_amount by customer_key across all fact_sales DataFrames
+        in the result. Only updates customers present in the result (new customers
+        during incremental; all during initial load).
+        
+        Excludes Cancelled/Returned orders from the total.
+        """
+        customers_data = result.get_table_data("dim_customers")
+        if customers_data is None or customers_data.data.empty:
+            return
+        
+        import pandas as pd
+        
+        # Collect all fact_sales DataFrames (frequent shoppers may produce multiple)
+        sales_frames = []
+        for table_name, gen_data in result.facts.items():
+            if table_name == "fact_sales" and not gen_data.data.empty:
+                sales_frames.append(gen_data.data)
+        
+        if not sales_frames:
+            return
+        
+        all_sales = pd.concat(sales_frames, ignore_index=True)
+        
+        valid_sales = all_sales[
+            ~all_sales["order_status"].isin(["Cancelled", "Returned"])
+        ]
+        
+        if valid_sales.empty:
+            return
+        
+        ltv = valid_sales.groupby("customer_key")["total_amount"].sum()
+        
+        df = customers_data.data
+        df["lifetime_value"] = df["customer_key"].map(ltv).fillna(df["lifetime_value"])
+        
+        self.logger.info(
+            f"Backfilled lifetime_value for {ltv.index.isin(df['customer_key']).sum()} customers"
+        )
+    
     def generate_incremental(
         self,
         start_date: Optional[date] = None,
@@ -459,5 +504,7 @@ class SalesHelper(BaseHelper):
             )
             result.add_fact(loyalty)
             self._update_keys("fact_loyalty_points", loyalty.surrogate_keys)
+        
+        self._backfill_lifetime_value(result)
         
         return result

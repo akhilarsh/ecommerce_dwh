@@ -444,6 +444,26 @@ def load_data(
     sys.exit(0 if success else 1)
 
 
+@cli.command("run-sql")
+@click.argument("sql_file", type=click.Path(exists=True))
+@click.pass_context
+def run_sql(ctx: click.Context, sql_file: str):
+    """
+    Run a SQL file against the configured DWH platform.
+    
+    \b
+    Example:
+      dwh run-sql sql/05_update_lifetime_value.sql
+    """
+    from src.cli.commands.run_sql import run_sql_command
+    dwh = require_dwh_platform(ctx)
+    success = run_sql_command(
+        sql_file=sql_file,
+        verbose=ctx.obj.get("verbose", False)
+    )
+    sys.exit(0 if success else 1)
+
+
 @cli.command("status")
 @click.pass_context
 def status(ctx: click.Context):
