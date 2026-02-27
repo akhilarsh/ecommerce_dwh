@@ -168,11 +168,6 @@ class FactSales(BaseTable):
                 nullable=False,
                 comment="Record creation timestamp"
             ),
-            Column(
-                "updated_at",
-                "TIMESTAMP_NTZ",
-                comment="Last update timestamp"
-            ),
         ]
     
     foreign_keys = [

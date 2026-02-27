@@ -250,7 +250,6 @@ CREATE TABLE IF NOT EXISTS ecommerce_db.e_mart.fact_sales (
   order_status VARCHAR(50) COMMENT 'Completed, Cancelled, Returned, Pending',
   is_online BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Online order flag',
   created_at TIMESTAMP_NTZ NOT NULL COMMENT 'Record creation timestamp',
-  updated_at TIMESTAMP_NTZ COMMENT 'Last update timestamp',
   PRIMARY KEY (sale_key)
 )
 COMMENT = 'Core sales transactions fact table'

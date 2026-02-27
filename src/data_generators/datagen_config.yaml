@@ -71,8 +71,8 @@ initial_load:
 incremental:
   # Date range for incremental data (entries distributed across this range)
   # CLI can override with --start-date and --end-date
-  start_date: ${DATAGEN_START_DATE || 2026-02-01}
-  end_date: ${DATAGEN_END_DATE || 2026-02-06}
+  start_date: ${DATAGEN_START_DATE || 2026-02-18}
+  end_date: ${DATAGEN_END_DATE || 2026-02-26}
   
   # Volume counts (distributed across date range)
   new_customers: ${DATAGEN_NEW_CUSTOMERS || 25}

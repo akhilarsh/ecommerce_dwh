@@ -156,7 +156,6 @@ class FactSalesGenerator(BaseEntityGenerator):
                 "order_status": order_status,
                 "is_online": random.random() < 0.6,
                 "created_at": now,
-                "updated_at": now,
             }
             records.append(record)
         
