@@ -468,7 +468,7 @@ bridge_product_promo -> dim_products, dim_promotions
 bridge_account_cust  -> dim_accounts, dim_customers
 ```
 
-Total: 35 foreign key constraints.
+Total: 34 foreign key constraints.
 
 ---
 
@@ -564,7 +564,7 @@ DataGenerator (src/data_generators/generator.py)
 2. Calendar (dates, time)
 3. Catalog (categories, products, promotions)
 4. Stores (stores, employees)
-5. Sales domain (accounts, customers, account-customer bridge, sales, order items, interactions, loyalty)
+5. Sales domain (accounts, customers [1:1 with accounts], account-customer bridge, sales, order items, interactions, loyalty)
 6. Inventory snapshots
 
 **Key management:** `ExistingKeysLoader` (`src/data_generators/utils/keys_loader.py`) tracks surrogate keys across entities for referential integrity.
