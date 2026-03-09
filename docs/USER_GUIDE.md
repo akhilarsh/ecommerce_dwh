@@ -319,17 +319,18 @@ The YAML supports environment variable overrides using `${ENV_VAR || default}` s
 
 ```yaml
 initial_load:
-  customers: ${DATAGEN_CUSTOMERS || 500}
+  customers: ${DATAGEN_CUSTOMERS || 1000}
   products: ${DATAGEN_PRODUCTS || 5000}
   stores: ${DATAGEN_STORES || 10}
+  accounts: ${DATAGEN_ACCOUNTS || 1000}   # 1:1 with customers
   sales: ${DATAGEN_SALES || 10000}
   date_start: ${DATAGEN_DATE_START || 2025-01-01}
-  date_end: ${DATAGEN_DATE_END || 2026-01-31}
+  date_end: ${DATAGEN_DATE_END || 2026-03-08}
 
 incremental:
-  start_date: ${DATAGEN_START_DATE || 2026-02-01}
-  end_date: ${DATAGEN_END_DATE || 2026-02-06}
-  new_customers: ${DATAGEN_NEW_CUSTOMERS || 5}
+  start_date: ${DATAGEN_START_DATE || 2026-03-01}
+  end_date: ${DATAGEN_END_DATE || 2026-03-08}
+  new_customers: ${DATAGEN_NEW_CUSTOMERS || 25}  # auto-creates matching accounts
   new_orders: ${DATAGEN_NEW_ORDERS || 50}
 ```
 
@@ -479,5 +480,5 @@ Check logs in the `logs/` directory:
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** February 2, 2026
+**Version:** 1.1  
+**Last Updated:** March 9, 2026

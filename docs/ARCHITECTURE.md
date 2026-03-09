@@ -45,7 +45,7 @@ This document provides deep technical details about the e-commerce data warehous
 │  ┌─────────────────────────────────────────────────┐        │
 │  │         Database: ecommerce_db                  │        │
 │  │         Schema: ecommerce_dwh                   │        │
-│  │         Tables: 18 (4 fact, 12 dim, 2 bridge)  │        │
+│  │         Tables: 20 (4 fact, 13 dim, 3 bridge)  │        │
 │  └─────────────────────────────────────────────────┘        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -105,7 +105,18 @@ dim_customers (SCD Type 2)
     ├── segment_key (FK) → dim_customer_segments
     │       ├── segment_key (PK)
     │       └── segment_name (High Value, Regular, New, etc.)
+    ├── account_key (FK) → dim_accounts (1:1)
+    │       ├── account_key (PK)
+    │       ├── account_type (Individual, Household, Business, Corporate, Guest)
+    │       ├── account_tier (Standard, Premium, Enterprise)
+    │       └── B2B attributes (company_name, tax_id, credit_limit, payment_terms)
     └── SCD columns: effective_date, end_date, is_current
+
+bridge_account_customers
+    ├── account_key (FK) → dim_accounts
+    ├── customer_key (FK) → dim_customers
+    ├── role (Owner, Admin, Buyer, Viewer, Member)
+    └── temporal columns: effective_date, end_date, is_current
 ```
 
 #### Product Hierarchy
@@ -361,7 +372,9 @@ class DimCustomersGenerator(BaseEntityGenerator):
 1. CalendarHelper.generate()     → dim_dates, dim_time
 2. CatalogHelper.generate()      → dim_categories, dim_products, dim_promotions
 3. StoreHelper.generate()        → dim_stores, dim_employees
-4. SalesHelper.generate()        → dim_customers, fact_sales, bridge_order_items
+4. SalesHelper.generate()        → dim_accounts, dim_customers, bridge_account_customers,
+                                    fact_sales, bridge_order_items,
+                                    fact_customer_interactions, fact_loyalty_points
 5. InventoryHelper.generate()    → fact_inventory_snapshots
 6. Validate referential integrity
 7. Save to CSV / return DataFrames
@@ -394,10 +407,10 @@ class DataLoadOrchestrator:
 ```
 
 **Load Order:** Determined by `ReferentialIntegrityHandler.get_load_order()`:
-1. Static dimensions (dim_dates, dim_time, dim_channels, etc.)
+1. Static dimensions (dim_dates, dim_time, dim_channels, dim_accounts, etc.)
 2. Master dimensions (dim_customers, dim_products)
 3. Fact tables (fact_sales, fact_inventory_snapshots, etc.)
-4. Bridge tables (bridge_order_items, bridge_product_promotions)
+4. Bridge tables (bridge_order_items, bridge_product_promotions, bridge_account_customers)
 
 ### 5. Connection Layer (`connectors/`)
 
@@ -653,6 +666,6 @@ HAVING COUNT(*) > 1;  -- Should return 0 rows
 
 ---
 
-**Document Version:** 2.0  
-**Last Updated:** February 5, 2026  
+**Document Version:** 2.1  
+**Last Updated:** March 9, 2026  
 **Status:** Architecture implemented and documented

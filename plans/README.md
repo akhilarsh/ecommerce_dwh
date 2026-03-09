@@ -14,6 +14,7 @@ This folder contains detailed documentation for each development phase of the E-
 | 6 | Data Loading Module | ✅ Complete | [phase6_data_loading.md](phase6_data_loading.md) |
 | 7 | Execution Workflows | ✅ Complete | [phase7_workflows.md](phase7_workflows.md) |
 | 8 | Audience Analytics | ✅ Complete | [phase8_audience_analytics.md](phase8_audience_analytics.md) |
+| 9 | Account Dimension | ✅ Complete | [phase9_account_dimension.md](phase9_account_dimension.md) |
 
 ## Quick Start
 
@@ -30,8 +31,9 @@ flowchart LR
     P5 --> P6[Phase 6: Data Load]
     P6 --> P7[Phase 7: Workflows]
     P7 --> P8[Phase 8: Integration]
+    P8 --> P9[Phase 9: Account Dim]
 ```
 
 ---
 
-**Last Updated:** February 5, 2026
+**Last Updated:** March 9, 2026

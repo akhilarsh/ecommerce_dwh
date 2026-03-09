@@ -61,7 +61,7 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 See **[../docs/ERD.md](../docs/ERD.md)** for the complete ERD with:
 
 - Full Mermaid diagram (renders natively in GitHub/IDE)
-- All 18 tables with columns and types
+- All 20 tables with columns and types
 - All foreign key relationships
 - Real-world example: "A Customer's Shopping Journey"
 
@@ -300,6 +300,6 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 
 ---
 
-**Document Version:** 2.6  
-**Last Updated:** February 5, 2026  
+**Document Version:** 2.7  
+**Last Updated:** March 9, 2026  
 **Status:** All Phases Complete

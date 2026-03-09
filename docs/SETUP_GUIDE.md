@@ -195,7 +195,7 @@ source venv/bin/activate && dwh create-and-load --drop-existing
 This command will:
 1. ✅ Test Snowflake connection
 2. 📊 Use configured database and schema
-3. 🏛️ Create all 18 tables (drops existing if any)
+3. 🏛️ Create all 20 tables (drops existing if any)
 4. 📈 Generate synthetic test data
 5. 📥 Load data into tables
 6. ✔️ Validate data integrity
@@ -203,14 +203,14 @@ This command will:
 **Expected output:**
 ```
 ✅ Setup Tables completed successfully!
-   Tables: 18 created, 0 already existed
-   Foreign Keys: 31 applied
+   Tables: 20 created, 0 already existed
+   Foreign Keys: 34 applied
 
 ✅ Data generation complete!
    Output: outputs/initial_data
 
 ✅ Data loading complete!
-   Tables loaded: 18
+   Tables loaded: 20
    Total rows: ~25,000
 ```
 
@@ -549,5 +549,5 @@ rm -rf venv/
 
 ---
 
-**Last Updated:** February 5, 2026  
-**Version:** 2.0
+**Last Updated:** March 9, 2026  
+**Version:** 2.1

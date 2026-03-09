@@ -22,8 +22,8 @@ This project provides a modular, object-oriented framework for:
 ### Schema Overview
 
 - **4 Fact Tables** - Sales, Inventory, Customer Interactions, Loyalty Points
-- **12 Dimension Tables** - Customers, Products, Stores, Channels, Dates, etc.
-- **2 Bridge Tables** - Order Items, Product Promotions
+- **13 Dimension Tables** - Customers, Products, Stores, Channels, Dates, Accounts, etc.
+- **3 Bridge Tables** - Order Items, Product Promotions, Account Customers
 
 ## Quick Start
 
@@ -170,6 +170,7 @@ ecommerce_dwh/
 | 6 | Data Loading Module | Complete |
 | 7 | Execution Workflows | Complete |
 | 8 | Integration & Testing | Complete |
+| 9 | Account Dimension | Complete |
 
 ## Testing
 
