@@ -124,6 +124,12 @@ class DimCustomers(BaseTable):
                 comment="FK to dim_customer_segments"
             ),
             Column(
+                "account_key",
+                "NUMBER",
+                precision=38,
+                comment="FK to dim_accounts (primary account)"
+            ),
+            Column(
                 "preferred_channel",
                 "VARCHAR",
                 length=50,
@@ -199,5 +205,10 @@ class DimCustomers(BaseTable):
             column="segment_key",
             reference_table="dim_customer_segments",
             reference_column="segment_key"
-        )
+        ),
+        ForeignKey(
+            column="account_key",
+            reference_table="dim_accounts",
+            reference_column="account_key"
+        ),
     ]

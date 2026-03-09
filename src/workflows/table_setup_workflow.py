@@ -304,11 +304,13 @@ class TableSetupWorkflow(BaseWorkflow):
         # Drop in reverse order (bridge -> fact -> dimension)
         drop_order = list(reversed(all_tables))
         
+        qualified_prefix = f"{creator.database_name}.{creator.schema_name}"
         for table_name in drop_order:
             if table_name.lower() in [t.lower() for t in existing_tables]:
                 try:
-                    logger.info(f"Dropping table: {table_name}")
-                    creator.connector.execute_query(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+                    qualified_name = f"{qualified_prefix}.{table_name}"
+                    logger.info(f"Dropping table: {qualified_name}")
+                    creator.connector.execute_query(f"DROP TABLE IF EXISTS {qualified_name} CASCADE")
                 except Exception as e:
                     logger.warning(f"Failed to drop {table_name}: {e}")
 

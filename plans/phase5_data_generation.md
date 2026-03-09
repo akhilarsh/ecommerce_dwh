@@ -24,13 +24,13 @@ deliverables:
     content: StoreHelper for dim_stores, dim_employees
     status: complete
   - id: sales-helper
-    content: SalesHelper for dim_customers, fact_sales, bridge_order_items, fact_interactions, fact_loyalty
+    content: SalesHelper for dim_accounts, dim_customers, bridge_account_customers, fact_sales, bridge_order_items, fact_interactions, fact_loyalty
     status: complete
   - id: inventory-helper
     content: InventoryHelper for fact_inventory_snapshots
     status: complete
   - id: entity-generators
-    content: 18 entity generators in src/data_generators/entities/
+    content: 20 entity generators in src/data_generators/entities/
     status: complete
   - id: keys-loader
     content: ExistingKeysLoader for incremental key management
@@ -78,7 +78,9 @@ Config-driven data generation with a single `DataGenerator` that delegates to do
 │  ┌─────────────────┐  ┌─────────────────┐                                  │
 │  │   SalesHelper   │  │ InventoryHelper │                                  │
 │  │  ─────────────  │  │  ─────────────  │                                  │
-│  │  dim_customers  │  │  fact_inventory │                                  │
+│  │  dim_accounts   │  │  fact_inventory │                                  │
+│  │  dim_customers  │  │                 │                                  │
+│  │  bridge_acct_cu │  │                 │                                  │
 │  │  fact_sales     │  │                 │                                  │
 │  │  bridge_orders  │  │                 │                                  │
 │  │  fact_interact  │  │                 │                                  │
@@ -87,7 +89,7 @@ Config-driven data generation with a single `DataGenerator` that delegates to do
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                           Entity Generators                                  │
-│         (DimCustomersGenerator, FactSalesGenerator, etc. - 18 total)        │
+│         (DimCustomersGenerator, FactSalesGenerator, etc. - 20 total)        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -110,7 +112,7 @@ src/data_generators/
 │   ├── sales_helper.py         # dim_customers, fact_sales, fact_interactions, fact_loyalty
 │   └── inventory_helper.py     # fact_inventory_snapshots
 │
-├── entities/                   # Individual entity generators (18 files)
+├── entities/                   # Individual entity generators (20 files)
 │   ├── __init__.py
 │   ├── base_entity.py          # BaseEntityGenerator
 │   ├── dim_dates.py
@@ -121,6 +123,7 @@ src/data_generators/
 │   ├── dim_customer_segments.py
 │   ├── dim_product_categories.py
 │   ├── dim_promotions.py
+│   ├── dim_accounts.py
 │   ├── dim_stores.py
 │   ├── dim_employees.py
 │   ├── dim_products.py
@@ -130,7 +133,8 @@ src/data_generators/
 │   ├── fact_interactions.py
 │   ├── fact_loyalty.py
 │   ├── bridge_order_items.py
-│   └── bridge_product_promotions.py
+│   ├── bridge_product_promotions.py
+│   └── bridge_account_customers.py
 │
 └── utils/
     ├── __init__.py
@@ -297,7 +301,7 @@ Main entry point that delegates to domain helpers:
 | CalendarHelper | dim_dates, dim_time |
 | CatalogHelper | dim_product_categories, dim_products, dim_promotions, bridge_product_promotions |
 | StoreHelper | dim_stores, dim_employees |
-| SalesHelper | dim_customers, fact_sales, bridge_order_items, fact_customer_interactions, fact_loyalty_points |
+| SalesHelper | dim_accounts, dim_customers, bridge_account_customers, fact_sales, bridge_order_items, fact_customer_interactions, fact_loyalty_points |
 | InventoryHelper | fact_inventory_snapshots |
 
 ### Utilities
@@ -315,7 +319,8 @@ Main entry point that delegates to domain helpers:
 1. CalendarHelper.generate()     → dim_dates, dim_time
 2. CatalogHelper.generate()      → dim_categories, dim_products, dim_promotions
 3. StoreHelper.generate()        → dim_stores, dim_employees
-4. SalesHelper.generate()        → dim_customers, fact_sales, bridge_order_items, 
+4. SalesHelper.generate()        → dim_accounts, dim_customers, bridge_account_customers,
+                                   fact_sales, bridge_order_items, 
                                    fact_interactions, fact_loyalty
 5. InventoryHelper.generate()    → fact_inventory_snapshots
 6. Validate referential integrity
@@ -358,7 +363,7 @@ outputs/
 │   ├── dim_customers.csv
 │   ├── dim_products.csv
 │   ├── fact_sales.csv
-│   └── ... (18 files)
+│   └── ... (20 files)
 │
 ├── incremental/            # Incremental output
 │   └── 2026-02-01_to_2026-02-04/

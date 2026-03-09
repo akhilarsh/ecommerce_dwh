@@ -3,22 +3,22 @@ name: Phase 2 - Table Models & SQL Generation
 status: completed
 completion_date: "2026-01-28"
 duration_estimate: 2-4 hours
-overview: "Define all 18 database tables and implement DDL generation for CREATE TABLE statements and FK constraints."
+overview: "Define all 20 database tables and implement DDL generation for CREATE TABLE statements and FK constraints."
 deliverables:
   - id: dim-tables
-    content: All dimension table models (12 tables)
+    content: All dimension table models (13 tables)
     status: completed
   - id: fact-tables
     content: All fact table models (4 tables)
     status: completed
   - id: bridge-tables
-    content: All bridge table models (2 tables)
+    content: All bridge table models (3 tables)
     status: completed
   - id: ddl-generator
-    content: DDL generator for CREATE TABLE (18 tables generated)
+    content: DDL generator for CREATE TABLE (20 tables generated)
     status: completed
   - id: constraint-gen
-    content: Constraint generator for FK/PK (31 foreign keys)
+    content: Constraint generator for FK/PK (35 foreign keys)
     status: completed
   - id: schema-manager
     content: Schema manager module (dependency order management)
@@ -39,7 +39,7 @@ Define all database tables and implement DDL generation.
 
 ## Tables Defined
 
-### Dimension Tables (12)
+### Dimension Tables (13)
 
 | Table | File | SCD Type |
 |-------|------|----------|
@@ -51,6 +51,7 @@ Define all database tables and implement DDL generation.
 | dim_customer_segments | `src/models/dimension_tables/dim_customer_segments.py` | Type 1 |
 | dim_product_categories | `src/models/dimension_tables/dim_product_categories.py` | Type 1 |
 | dim_promotions | `src/models/dimension_tables/dim_promotions.py` | Type 1 |
+| dim_accounts | `src/models/dimension_tables/dim_accounts.py` | Type 1 |
 | dim_employees | `src/models/dimension_tables/dim_employees.py` | Type 1 |
 | dim_stores | `src/models/dimension_tables/dim_stores.py` | Type 1 |
 | dim_products | `src/models/dimension_tables/dim_products.py` | Type 2 |
@@ -65,12 +66,13 @@ Define all database tables and implement DDL generation.
 | fact_customer_interactions | `src/models/fact_tables/fact_customer_interactions.py` |
 | fact_loyalty_points | `src/models/fact_tables/fact_loyalty_points.py` |
 
-### Bridge Tables (2)
+### Bridge Tables (3)
 
 | Table | File |
 |-------|------|
 | bridge_order_items | `src/models/bridge_tables/bridge_order_items.py` |
 | bridge_product_promotions | `src/models/bridge_tables/bridge_product_promotions.py` |
+| bridge_account_customers | `src/models/bridge_tables/bridge_account_customers.py` |
 
 ## SQL Generation
 
@@ -116,7 +118,7 @@ class DimCustomers(BaseTable):
 
 ## Validation
 
-- 18 tables defined
-- 31 foreign key relationships
+- 20 tables defined
+- 35 foreign key relationships
 - All tables follow naming conventions
 - SCD Type 2 columns present for dim_customers, dim_products

@@ -22,6 +22,7 @@ from src.models.dimension_tables.dim_shipping_methods import DimShippingMethods
 from src.models.dimension_tables.dim_customer_segments import DimCustomerSegments
 from src.models.dimension_tables.dim_product_categories import DimProductCategories
 from src.models.dimension_tables.dim_promotions import DimPromotions
+from src.models.dimension_tables.dim_accounts import DimAccounts
 from src.models.dimension_tables.dim_stores import DimStores
 from src.models.dimension_tables.dim_employees import DimEmployees
 from src.models.dimension_tables.dim_products import DimProducts
@@ -32,6 +33,7 @@ from src.models.fact_tables.fact_customer_interactions import FactCustomerIntera
 from src.models.fact_tables.fact_loyalty_points import FactLoyaltyPoints
 from src.models.bridge_tables.bridge_order_items import BridgeOrderItems
 from src.models.bridge_tables.bridge_product_promotions import BridgeProductPromotions
+from src.models.bridge_tables.bridge_account_customers import BridgeAccountCustomers
 from src.sql_generator.ddl_generator import DDLGenerator
 from src.sql_generator.constraint_generator import ConstraintGenerator
 from src.utils.logger import get_logger
@@ -66,6 +68,7 @@ class SchemaManager:
                 DimCustomerSegments(),
                 DimProductCategories(),
                 DimPromotions(),
+                DimAccounts(),
             ],
             "master_dimensions": [
                 DimStores(),
@@ -84,6 +87,7 @@ class SchemaManager:
             "bridge_tables": [
                 BridgeOrderItems(),
                 BridgeProductPromotions(),
+                BridgeAccountCustomers(),
             ]
         }
     

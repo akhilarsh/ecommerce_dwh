@@ -191,8 +191,8 @@ class TestFactSalesGenerator:
 class TestDataGenerator:
     def test_generates_all_tables(self, result):
         all_data = result.get_all_data()
-        # 12 dimension tables + 4 fact tables + 2 bridge tables = 18
-        assert len(all_data) == 18
+        # 13 dimension tables + 4 fact tables + 3 bridge tables = 20
+        assert len(all_data) == 20
     
     def test_generates_dimensions(self, result):
         assert "dim_customers" in result.dimensions

@@ -25,6 +25,7 @@ class ReferentialIntegrityHandler:
     FK_RELATIONSHIPS = [
         # Dimension FKs
         ("dim_customers", "segment_key", "dim_customer_segments", "segment_key"),
+        ("dim_customers", "account_key", "dim_accounts", "account_key"),
         ("dim_products", "category_key", "dim_product_categories", "category_key"),
         ("dim_employees", "store_key", "dim_stores", "store_key"),
         
@@ -67,6 +68,10 @@ class ReferentialIntegrityHandler:
         # Bridge Product Promotions FKs
         ("bridge_product_promotions", "product_key", "dim_products", "product_key"),
         ("bridge_product_promotions", "promotion_key", "dim_promotions", "promotion_key"),
+        
+        # Bridge Account Customers FKs
+        ("bridge_account_customers", "account_key", "dim_accounts", "account_key"),
+        ("bridge_account_customers", "customer_key", "dim_customers", "customer_key"),
     ]
     
     def __init__(self):
@@ -201,6 +206,7 @@ class ReferentialIntegrityHandler:
             "dim_customer_segments",
             "dim_product_categories",
             "dim_promotions",
+            "dim_accounts",
             "dim_stores",
             # Dimensions with FKs
             "dim_employees",
@@ -214,5 +220,6 @@ class ReferentialIntegrityHandler:
             # Bridge tables
             "bridge_order_items",
             "bridge_product_promotions",
+            "bridge_account_customers",
         ]
         return order

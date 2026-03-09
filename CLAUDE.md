@@ -53,11 +53,11 @@
 
 ## 📊 Schema Design
 
-### Tables (18 total)
+### Tables (20 total)
 
 __Fact Tables (4):__ fact_sales, fact_inventory_snapshots, fact_customer_interactions, fact_loyalty_points  
-__Dimension Tables (12):__ dim_customers, dim_products, dim_stores, dim_channels, dim_dates, dim_time, dim_promotions, dim_payment_methods, dim_shipping_methods, dim_product_categories, dim_customer_segments, dim_employees  
-__Bridge Tables (2):__ bridge_order_items, bridge_product_promotions
+__Dimension Tables (13):__ dim_customers, dim_products, dim_stores, dim_channels, dim_dates, dim_time, dim_promotions, dim_payment_methods, dim_shipping_methods, dim_product_categories, dim_customer_segments, dim_employees, dim_accounts  
+__Bridge Tables (3):__ bridge_order_items, bridge_product_promotions, bridge_account_customers
 
 ### Key Principles
 

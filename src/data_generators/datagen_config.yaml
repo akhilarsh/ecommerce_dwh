@@ -26,7 +26,7 @@
 # Used by: dwh generate-data
 initial_load:
   # Dimension counts
-  customers: ${DATAGEN_CUSTOMERS || 500}
+  customers: ${DATAGEN_CUSTOMERS || 1000}
   products: ${DATAGEN_PRODUCTS || 5000}
   stores: ${DATAGEN_STORES || 10}
   employees: ${DATAGEN_EMPLOYEES || 50}
@@ -38,6 +38,7 @@ initial_load:
   shipping_methods: ${DATAGEN_SHIPPING_METHODS || 8}
   customer_segments: ${DATAGEN_CUSTOMER_SEGMENTS || 7}
   product_categories: ${DATAGEN_PRODUCT_CATEGORIES || 100}
+  accounts: ${DATAGEN_ACCOUNTS || 1000}
   
   # Fact counts
   # sales: Number of orders (each order has 1-5 line items in bridge_order_items)
@@ -56,7 +57,7 @@ initial_load:
   
   # Date range for historical data
   date_start: ${DATAGEN_DATE_START || 2025-01-01}
-  date_end: ${DATAGEN_DATE_END || 2026-01-31}
+  date_end: ${DATAGEN_DATE_END || 2026-03-08}
 
 # -----------------------------------------------------------------------------
 # Incremental Settings - Operations and event-driven generation
@@ -71,8 +72,8 @@ initial_load:
 incremental:
   # Date range for incremental data (entries distributed across this range)
   # CLI can override with --start-date and --end-date
-  start_date: ${DATAGEN_START_DATE || 2026-02-18}
-  end_date: ${DATAGEN_END_DATE || 2026-02-26}
+  start_date: ${DATAGEN_START_DATE || 2026-03-09}
+  end_date: ${DATAGEN_END_DATE || 2026-03-09}
   
   # Volume counts (distributed across date range)
   new_customers: ${DATAGEN_NEW_CUSTOMERS || 25}
@@ -119,7 +120,7 @@ incremental:
 # IMPORTANT: This range should cover both initial_load and incremental dates
 dates:
   start: ${DATAGEN_DATES_START || 2025-01-01}
-  end: ${DATAGEN_DATES_END || 2026-12-31}
+  end: ${DATAGEN_DATES_END || 2026-03-08}
 
 # -----------------------------------------------------------------------------
 # Output Paths

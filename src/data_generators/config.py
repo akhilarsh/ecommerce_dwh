@@ -80,6 +80,7 @@ class VolumesConfig:
     shipping_methods: int = 0
     customer_segments: int = 0
     product_categories: int = 0
+    accounts: int = 0
     sales: int = 0
     inventory_snapshots: int = 0
     customer_interactions: int = 0
@@ -163,7 +164,15 @@ def _parse_date(value: Any) -> Optional[date]:
     if isinstance(value, date):
         return value
     if isinstance(value, str):
-        return date.fromisoformat(value)
+        value = value.strip()
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            logger = get_logger("generator.config")
+            logger.warning(f"Invalid date format '{value}', expected YYYY-MM-DD — skipping")
+            return None
     return None
 
 
@@ -213,6 +222,7 @@ def _parse_volumes(data: Dict[str, Any]) -> VolumesConfig:
         shipping_methods=_parse_int(section.get("shipping_methods"), 0),
         customer_segments=_parse_int(section.get("customer_segments"), 0),
         product_categories=_parse_int(section.get("product_categories"), 0),
+        accounts=_parse_int(section.get("accounts"), 0),
         sales=_parse_int(section.get("sales"), 0),
         inventory_snapshots=_parse_int(section.get("inventory_snapshots"), 0),
         customer_interactions=_parse_int(section.get("customer_interactions"), 0),

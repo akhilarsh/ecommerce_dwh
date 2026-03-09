@@ -32,7 +32,7 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 3. __fact_customer_interactions__ - Customer touchpoints (web visits, store visits)
 4. __fact_loyalty_points__ - Loyalty program transactions
 
-#### Dimension Tables (12)
+#### Dimension Tables (13)
 
 1. __dim_customers__ - Customer master data (SCD Type 2 for history tracking)
 2. __dim_products__ - Product catalog with attributes
@@ -46,11 +46,13 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 10. __dim_product_categories__ - Product hierarchy (Category > Subcategory > Brand)
 11. __dim_customer_segments__ - Customer segmentation groups
 12. __dim_employees__ - Store/sales associates
+13. __dim_accounts__ - Customer accounts (individual, household, business, corporate)
 
-#### Bridge Tables (2)
+#### Bridge Tables (3)
 
 1. __bridge_order_items__ - Order line items linking sales to products
 2. __bridge_product_promotions__ - Product-promotion associations
+3. __bridge_account_customers__ - Account-customer relationships with roles
 
 ---
 
@@ -151,8 +153,9 @@ For detailed documentation of each phase, see the individual phase files in this
 | 6 | Data Loading Module | ✅ Complete | [phase6_data_loading.md](phase6_data_loading.md) |
 | 7 | Execution Workflows | ✅ Complete | [phase7_workflows.md](phase7_workflows.md) |
 | 8 | Audience Analytics | ✅ Complete | [phase8_audience_analytics.md](phase8_audience_analytics.md) |
+| 9 | Account Dimension | ✅ Complete | [phase9_account_dimension.md](phase9_account_dimension.md) |
 
-**Completion:** 8/8 Phases (100%)
+**Completion:** 9/9 Phases (100%)
 
 ---
 
@@ -269,7 +272,7 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 
 ## Success Criteria
 
-- [x] All 18 tables created in Snowflake
+- [x] All 20 tables created in Snowflake
 - [x] Foreign key relationships enforced
 - [x] Test data loaded with integrity
 - [x] Sample queries execute correctly
@@ -287,7 +290,7 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 | Logger | ✅ | `src/utils/logger.py` |
 | Base Table | ✅ | `src/models/base_table.py` |
 | Snowflake Connector | ✅ | `src/connectors/snowflake_connector.py` |
-| Table Models (18) | ✅ | `src/models/` |
+| Table Models (20) | ✅ | `src/models/` |
 | SQL Generator | ✅ | `src/sql_generator/` |
 | Table Manager | ✅ | `src/table_manager/create_tables.py` |
 | CLI Framework | ✅ | `src/cli/` |

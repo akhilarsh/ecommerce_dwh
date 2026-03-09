@@ -302,7 +302,7 @@ class TestDataLoadOrchestrator:
         """Test that load order is retrieved correctly."""
         order = orchestrator.get_load_order()
         
-        assert len(order) == 18
+        assert len(order) == 20
         # Dimensions should come before facts
         dim_dates_idx = order.index("dim_dates")
         fact_sales_idx = order.index("fact_sales")

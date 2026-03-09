@@ -9,9 +9,11 @@ from datetime import date
 from typing import Dict, List, Optional
 
 from .base_helper import BaseHelper, DataGenerationResult, GeneratedData
+from ..entities.dim_accounts import DimAccountsGenerator
 from ..entities.dim_customers import DimCustomersGenerator
 from ..entities.fact_sales import FactSalesGenerator
 from ..entities.bridge_order_items import BridgeOrderItemsGenerator
+from ..entities.bridge_account_customers import BridgeAccountCustomersGenerator
 from ..entities.fact_interactions import FactCustomerInteractionsGenerator
 from ..entities.fact_loyalty import FactLoyaltyPointsGenerator
 from ..utils.customer_selector import CustomerSelector
@@ -22,7 +24,9 @@ class SalesHelper(BaseHelper):
     Helper for sales-related entities.
     
     Manages:
+    - dim_accounts: Account master data
     - dim_customers: Customer master data (SCD Type 2)
+    - bridge_account_customers: Account-customer relationships
     - fact_sales: Sales transactions
     - bridge_order_items: Order line items
     - fact_customer_interactions: Customer touchpoints
@@ -35,7 +39,9 @@ class SalesHelper(BaseHelper):
         """Initialize sales helper with entity generators."""
         super().__init__(config, keys_loader)
         
+        self.account_gen = DimAccountsGenerator(config)
         self.customer_gen = DimCustomersGenerator(config)
+        self.bridge_ac_gen = BridgeAccountCustomersGenerator(config)
         self.sales_gen = FactSalesGenerator(config)
         self.order_items_gen = BridgeOrderItemsGenerator(config)
         self.interactions_gen = FactCustomerInteractionsGenerator(config)
@@ -50,11 +56,27 @@ class SalesHelper(BaseHelper):
         """
         result = DataGenerationResult()
         
+        # Generate accounts (before customers, since customers reference accounts)
+        if self._should_generate("accounts"):
+            accounts = self._generate_accounts()
+            result.add_dimension(accounts)
+            self._update_keys("dim_accounts", accounts.surrogate_keys)
+        
         # Generate customers
         if self._should_generate("customers"):
-            customers = self._generate_customers()
+            account_keys = self._get_dimension_keys("dim_accounts")
+            customers = self._generate_customers(account_keys=account_keys)
             result.add_dimension(customers)
             self._update_keys("dim_customers", customers.surrogate_keys)
+            
+            # Generate account-customer bridge
+            if account_keys:
+                bridge_ac = self._generate_account_customer_bridge(
+                    customers_data=customers
+                )
+                if bridge_ac:
+                    result.add_fact(bridge_ac)
+                    self._update_keys("bridge_account_customers", bridge_ac.surrogate_keys)
         
         # Get dimension keys for fact generation
         dimension_keys = self.keys_loader.get_all_dimension_keys()
@@ -100,12 +122,78 @@ class SalesHelper(BaseHelper):
         
         return result
     
+    def _generate_accounts(
+        self,
+        count: Optional[int] = None
+    ) -> GeneratedData:
+        """
+        Generate accounts.
+        
+        Args:
+            count: Override volume from config
+            
+        Returns:
+            GeneratedData with account records
+        """
+        num_accounts = count or self._get_volume("accounts")
+        start_key = self._get_next_key("dim_accounts")
+        
+        self.logger.info(f"Generating {num_accounts} accounts")
+        
+        return self.account_gen.generate(
+            count=num_accounts,
+            start_key=start_key
+        )
+    
+    def _generate_account_customer_bridge(
+        self,
+        customers_data: GeneratedData
+    ) -> Optional[GeneratedData]:
+        """
+        Generate bridge records linking customers to their primary accounts.
+        
+        Uses account_key from the customer records to build the mapping,
+        then generates bridge rows with role assignments.
+        """
+        import pandas as pd
+        
+        df = customers_data.data
+        if df.empty or "account_key" not in df.columns:
+            return None
+        
+        valid = df[df["account_key"].notna()]
+        if valid.empty:
+            return None
+        
+        account_customer_map: dict = {}
+        for _, row in valid.iterrows():
+            acct_key = int(row["account_key"])
+            cust_key = int(row["customer_key"])
+            account_customer_map.setdefault(acct_key, []).append(cust_key)
+        
+        # Build account type lookup from generated accounts data
+        account_types: dict = {}
+        acct_keys_all = self._get_dimension_keys("dim_accounts")
+        if acct_keys_all:
+            # Retrieve account type from the generated data via keys_loader cache
+            # For simplicity, we don't have direct access to the DataFrame here,
+            # so roles will use default logic in the bridge generator
+            pass
+        
+        start_key = self._get_next_key("bridge_account_customers")
+        
+        return self.bridge_ac_gen.generate(
+            start_key=start_key,
+            account_customer_map=account_customer_map
+        )
+    
     def _generate_customers(
         self,
         count: Optional[int] = None,
         registration_date: Optional[date] = None,
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
+        account_keys: Optional[List[int]] = None
     ) -> GeneratedData:
         """
         Generate customers.
@@ -115,6 +203,7 @@ class SalesHelper(BaseHelper):
             registration_date: Specific registration date (single date)
             start_date: Start of date range (if using range)
             end_date: End of date range (if using range)
+            account_keys: List of valid account keys for primary account assignment
             
         Returns:
             GeneratedData with customer records
@@ -129,6 +218,7 @@ class SalesHelper(BaseHelper):
             count=num_customers,
             start_key=start_key,
             segment_keys=segment_keys,
+            account_keys=account_keys,
             registration_date=registration_date,
             start_date=start_date,
             end_date=end_date
@@ -374,17 +464,34 @@ class SalesHelper(BaseHelper):
         
         self.logger.info(f"Generating incremental data for {start} to {end}")
         
-        # Generate new customers (distributed across date range)
+        # Generate new accounts + customers (1:1 mapping)
         new_customer_keys = []
         if incremental.new_customers > 0:
+            num_new = incremental.new_customers
+
+            # Generate matching accounts first
+            new_accounts = self._generate_accounts(count=num_new)
+            result.add_dimension(new_accounts)
+            self._update_keys("dim_accounts", new_accounts.surrogate_keys)
+
+            # Generate customers with only the new account keys (1:1)
             customers = self._generate_customers(
-                count=incremental.new_customers,
+                count=num_new,
                 start_date=start,
-                end_date=end
+                end_date=end,
+                account_keys=new_accounts.surrogate_keys
             )
             result.add_dimension(customers)
             self._update_keys("dim_customers", customers.surrogate_keys)
             new_customer_keys = customers.surrogate_keys
+
+            # Generate bridge rows for new customers
+            bridge_ac = self._generate_account_customer_bridge(
+                customers_data=customers
+            )
+            if bridge_ac:
+                result.add_fact(bridge_ac)
+                self._update_keys("bridge_account_customers", bridge_ac.surrogate_keys)
         
         # Create customer selector
         existing_keys = self._get_dimension_keys("dim_customers")
