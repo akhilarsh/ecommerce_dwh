@@ -147,6 +147,7 @@ def generate_incremental_command(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     new_customers: Optional[int] = None,
+    new_accounts: Optional[int] = None,
     new_orders: Optional[int] = None,
     new_interactions: Optional[int] = None,
     new_loyalty: Optional[int] = None,
@@ -182,6 +183,8 @@ def generate_incremental_command(
         # Override config with CLI args if provided
         if new_customers is not None:
             cfg.incremental.new_customers = new_customers
+        if new_accounts is not None:
+            cfg.incremental.new_accounts = new_accounts
         if new_orders is not None:
             cfg.incremental.new_orders = new_orders
         if new_interactions is not None:
@@ -560,6 +563,7 @@ def _show_incremental_config(start_date: date, end_date: date, cfg: DataGenConfi
     days = (end_date - start_date).days + 1
     config_table.add_row("Days", f"{days}")
     config_table.add_row("New Customers", f"{cfg.incremental.new_customers:,}")
+    config_table.add_row("New Accounts", f"{cfg.incremental.new_accounts:,}")
     config_table.add_row("New Orders", f"{cfg.incremental.new_orders:,}")
     config_table.add_row("New Interactions", f"{cfg.incremental.new_interactions:,}")
     config_table.add_row("New Loyalty Txns", f"{cfg.incremental.new_loyalty_transactions:,}")

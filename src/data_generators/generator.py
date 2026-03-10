@@ -5,7 +5,7 @@ Single entry point for all data generation. Delegates to domain helpers
 and coordinates generation order for referential integrity.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -162,6 +162,7 @@ class DataGenerator:
         Generate incremental data based on config.incremental.
         
         Data is distributed across the date range.
+        Adds missing dates to dim_dates for the incremental range.
         
         Args:
             start_date: Start of date range (defaults to config.incremental.start_date)
@@ -170,10 +171,51 @@ class DataGenerator:
         Returns:
             DataGenerationResult with incremental operations
         """
+        from .utils.date_keys import date_to_key
+        
         start = start_date or self.config.incremental.start_date
         end = end_date or self.config.incremental.end_date
         self.logger.info(f"Generating incremental data for: {start} to {end}")
-        return self.sales.generate_incremental(start_date=start, end_date=end)
+        
+        result = DataGenerationResult()
+        
+        # Add missing dates for incremental range (fixes FK violations)
+        existing_date_keys = set(
+            self.keys_loader.get_valid_fk_keys("dim_dates") or []
+        )
+        missing_dates = []
+        d = start
+        while d <= end:
+            if date_to_key(d) not in existing_date_keys:
+                missing_dates.append(d)
+            d += timedelta(days=1)
+        
+        if missing_dates:
+            min_d, max_d = min(missing_dates), max(missing_dates)
+            missing_keys = {date_to_key(d) for d in missing_dates}
+            self.logger.info(
+                f"Adding {len(missing_dates)} missing dates to dim_dates "
+                f"({min_d} to {max_d})"
+            )
+            dates_data = self.calendar.generate_date_for_range(min_d, max_d)
+            if len(missing_keys) < len(dates_data.surrogate_keys):
+                from .helpers.base_helper import GeneratedData
+                df = dates_data.data
+                dates_data = GeneratedData(
+                    table_name=dates_data.table_name,
+                    data=df[df["date_key"].isin(missing_keys)].copy(),
+                    surrogate_keys=[k for k in dates_data.surrogate_keys if k in missing_keys],
+                )
+            result.add_dimension(dates_data)
+            self.keys_loader.update_after_generation(
+                "dim_dates", dates_data.surrogate_keys
+            )
+        
+        sales_result = self.sales.generate_incremental(
+            start_date=start, end_date=end
+        )
+        result.merge(sales_result)
+        return result
     
     def generate_inventory_snapshot(self, target_date: date) -> GeneratedData:
         """

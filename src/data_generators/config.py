@@ -95,6 +95,7 @@ class IncrementalConfig:
     end_date: Optional[date] = None
     # Volume counts (distributed across date range)
     new_customers: int = 0
+    new_accounts: int = 0
     new_orders: int = 0
     new_interactions: int = 0
     new_loyalty_transactions: int = 0
@@ -258,6 +259,7 @@ def _parse_incremental(data: Dict[str, Any]) -> IncrementalConfig:
         end_date=_parse_date(section.get("end_date")),
         # Volume counts
         new_customers=_parse_int(section.get("new_customers") or daily.get("new_customers"), 0),
+        new_accounts=_parse_int(section.get("new_accounts"), 0),
         new_orders=_parse_int(section.get("new_orders") or daily.get("new_orders"), 0),
         new_interactions=_parse_int(section.get("new_interactions") or daily.get("new_interactions"), 0),
         new_loyalty_transactions=_parse_int(section.get("new_loyalty_transactions") or daily.get("new_loyalty_transactions"), 0),

@@ -354,7 +354,7 @@ erDiagram
     %% ===== RELATIONSHIPS =====
 
     %% Dimension FK dependencies
-    dim_customers ||--|| dim_accounts : "account_key"
+    dim_customers }o--|| dim_accounts : "account_key"
     dim_customers ||--o{ dim_customer_segments : "segment_key"
     dim_products ||--o{ dim_product_categories : "category_key"
     dim_employees ||--o{ dim_stores : "store_key"
@@ -418,13 +418,13 @@ erDiagram
 | __dim_shipping_methods__ | `shipping_method_key` | None | Delivery options (Standard, Express, Same Day) with carriers. |
 | __dim_product_categories__ | `category_key` | None | Product hierarchy (category > subcategory). Self-referencing via `parent_category_key` for nested hierarchies. Parent to `dim_products`. |
 | __dim_customer_segments__ | `segment_key` | None | Customer classification groups (High Value, Regular, New) with LTV thresholds. Parent to `dim_customers`. |
-| __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). 1:1 mapping with customers. Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
+| __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). Many customers per account (many:1). Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
 
 ### Dimension Tables (With FK Dependencies) - 3 Tables
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
-| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts` | Each customer belongs to one segment and one account (1:1). SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
+| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts` | Each customer belongs to one segment and one account (many:1). SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
 | __dim_products__ | `product_key` | `category_key` → `dim_product_categories` | Each product belongs to one category. SCD Type 2 table - tracks price/attribute changes over time. Multiple rows per product_id possible. |
 | __dim_employees__ | `employee_key` | `store_key` → `dim_stores` | Each employee works at one store. Links sales associates to physical locations. |
 
@@ -467,7 +467,7 @@ erDiagram
 | __bridge_product_promotions__ | `product_promotion_key` | `product_key` → `dim_products` (required) | __Resolves many-to-many__ between products and promotions. |
 | | | `promotion_key` → `dim_promotions` (required) | One promotion applies to many products; one product can have many promotions. Contains product-specific discount details. |
 | __bridge_account_customers__ | `account_customer_key` | `account_key` → `dim_accounts` (required) | __Maps account-customer relationships__ with roles. |
-| | | `customer_key` → `dim_customers` (required) | 1:1 mapping — each customer has exactly one account. Bridge stores role and temporal relationship metadata. |
+| | | `customer_key` → `dim_customers` (required) | Many:1 mapping — multiple customers can belong to one account. Bridge stores role and temporal relationship metadata. |
 
 ### FK Count Summary
 

@@ -220,6 +220,7 @@ def generate_initial(
 @click.option("--start-date", "-s", default=None, help="Start date (YYYY-MM-DD), defaults to config")
 @click.option("--end-date", "-e", default=None, help="End date (YYYY-MM-DD), defaults to config")
 @click.option("--customers", default=None, type=int, help="New customers (default from config)")
+@click.option("--accounts", default=None, type=int, help="New accounts (default 0; new customers use existing)")
 @click.option("--orders", default=None, type=int, help="New orders (default from config)")
 @click.option("--interactions", default=None, type=int, help="New interactions (default from config)")
 @click.option("--loyalty", default=None, type=int, help="New loyalty txns (default from config)")
@@ -233,6 +234,7 @@ def generate_incremental(
     start_date: Optional[str],
     end_date: Optional[str],
     customers: Optional[int],
+    accounts: Optional[int],
     orders: Optional[int],
     interactions: Optional[int],
     loyalty: Optional[int],
@@ -247,6 +249,7 @@ def generate_incremental(
         start_date=start_date,
         end_date=end_date,
         new_customers=customers,
+        new_accounts=accounts,
         new_orders=orders,
         new_interactions=interactions,
         new_loyalty=loyalty,

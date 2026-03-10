@@ -140,17 +140,7 @@ class DimCustomersGenerator(BaseEntityGenerator):
             # State only for certain countries
             state = self.faker.state_abbr() if country in ["USA", "Canada", "Australia"] else None
             
-            if account_keys:
-                if i < len(account_keys):
-                    account_key = account_keys[i]
-                else:
-                    self.logger.warning(
-                        f"Customer {key}: no account_key available (index {i} >= {len(account_keys)} accounts). "
-                        "1:1 mapping requires equal account and customer counts."
-                    )
-                    account_key = None
-            else:
-                account_key = None
+            account_key = random.choice(account_keys) if account_keys else None
 
             record = {
                 "customer_key": key,
