@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from src.connectors.snowflake_connector import SnowflakeConnector
+from src.connectors import get_connector
+from src.cli.config import get_dwh_platform
 from src.table_manager.create_tables import TableCreator
 from src.sql_generator.schema_manager import SchemaManager
 from src.utils.logger import get_logger
@@ -95,9 +96,10 @@ class TableSetupWorkflow(BaseWorkflow):
             return self._execute_dry_run(config, started_at)
         
         try:
-            # Stage 1: Connect to Snowflake
-            logger.info("\n[1/6] Connecting to Snowflake...")
-            connector = SnowflakeConnector()
+            # Stage 1: Connect to DWH
+            platform = get_dwh_platform()
+            logger.info(f"\n[1/6] Connecting to {platform}...")
+            connector = get_connector(platform)
             
             with connector:
                 stages_completed.append("connect")
@@ -304,15 +306,26 @@ class TableSetupWorkflow(BaseWorkflow):
         # Drop in reverse order (bridge -> fact -> dimension)
         drop_order = list(reversed(all_tables))
         
-        qualified_prefix = f"{creator.database_name}.{creator.schema_name}"
+        if creator.platform == "postgres":
+            qualified_prefix = creator.schema_name
+        else:
+            qualified_prefix = f"{creator.database_name}.{creator.schema_name}"
+
         for table_name in drop_order:
             if table_name.lower() in [t.lower() for t in existing_tables]:
                 try:
                     qualified_name = f"{qualified_prefix}.{table_name}"
                     logger.info(f"Dropping table: {qualified_name}")
                     creator.connector.execute_query(f"DROP TABLE IF EXISTS {qualified_name} CASCADE")
+                    if creator.platform == "postgres":
+                        creator.connector.commit()
                 except Exception as e:
                     logger.warning(f"Failed to drop {table_name}: {e}")
+                    if creator.platform == "postgres":
+                        try:
+                            creator.connector.rollback()
+                        except Exception:
+                            pass
 
 
 # Backwards compatibility aliases

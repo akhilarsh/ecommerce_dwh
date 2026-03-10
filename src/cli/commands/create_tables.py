@@ -17,7 +17,8 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
-from src.connectors.snowflake_connector import SnowflakeConnector
+from src.connectors import get_connector
+from src.cli.config import get_dwh_platform
 from src.table_manager.create_tables import TableCreator
 
 logger = get_logger(__name__)
@@ -58,7 +59,8 @@ def create_tables_command(
         return dry_run_create(skip_fk, table_name)
     
     try:
-        connector = SnowflakeConnector()
+        platform = get_dwh_platform()
+        connector = get_connector(platform)
         
         with connector:
             creator = TableCreator(connector)

@@ -154,8 +154,9 @@ For detailed documentation of each phase, see the individual phase files in this
 | 7 | Execution Workflows | ✅ Complete | [phase7_workflows.md](phase7_workflows.md) |
 | 8 | Audience Analytics | ✅ Complete | [phase8_audience_analytics.md](phase8_audience_analytics.md) |
 | 9 | Account Dimension | ✅ Complete | [phase9_account_dimension.md](phase9_account_dimension.md) |
+| 10 | PostgreSQL Support | ✅ Complete | PG connector, loader, DDL adapter, CLI `--wh pg` |
 
-**Completion:** 9/9 Phases (100%)
+**Completion:** 10/10 Phases (100%)
 
 ---
 
