@@ -351,6 +351,57 @@ erDiagram
         TIMESTAMP_NTZ created_at
     }
 
+    %% ===== VIEWS (logical, derived from tables) =====
+    v_purchase {
+        NUMBER sale_key
+        VARCHAR order_id
+        NUMBER order_item_key
+        NUMBER line_number
+        NUMBER product_key FK
+        NUMBER customer_key FK
+        VARCHAR customer_id
+        VARCHAR first_name
+        VARCHAR last_name
+        VARCHAR email
+        VARCHAR loyalty_tier
+        DATE order_date
+        NUMBER line_quantity
+        NUMBER unit_price
+        NUMBER line_total
+        NUMBER total_amount
+        VARCHAR order_status
+        VARCHAR channel_name
+        VARCHAR store_name
+        VARCHAR promotion_name
+        VARCHAR payment_method_name
+        VARCHAR shipping_method_name
+        NUMBER points_earned
+    }
+
+    v_purchase_full {
+        NUMBER sale_key
+        VARCHAR order_id
+        NUMBER order_item_key
+        NUMBER line_number
+        NUMBER customer_key FK
+        NUMBER product_key FK
+        VARCHAR product_id
+        VARCHAR sku
+        VARCHAR product_name
+        VARCHAR brand
+        VARCHAR category_name
+        VARCHAR category_path
+        NUMBER line_quantity
+        NUMBER unit_price
+        NUMBER line_total
+        NUMBER total_amount
+        VARCHAR order_status
+        VARCHAR channel_name
+        VARCHAR store_name
+        VARCHAR promotion_name
+        NUMBER points_earned
+    }
+
     %% ===== RELATIONSHIPS =====
 
     %% Dimension FK dependencies
@@ -399,6 +450,10 @@ erDiagram
     bridge_product_promotions }o--|| dim_promotions : "promotion_key"
     bridge_account_customers }o--|| dim_accounts : "account_key"
     bridge_account_customers }o--|| dim_customers : "customer_key"
+
+    %% View relationships (many:one to dim_products)
+    v_purchase }o--|| dim_products : "product_key"
+    v_purchase_full }o--|| dim_products : "product_key"
 ```
 
 ---
@@ -468,6 +523,13 @@ erDiagram
 | | | `promotion_key` → `dim_promotions` (required) | One promotion applies to many products; one product can have many promotions. Contains product-specific discount details. |
 | __bridge_account_customers__ | `account_customer_key` | `account_key` → `dim_accounts` (required) | __Maps account-customer relationships__ with roles. |
 | | | `customer_key` → `dim_customers` (required) | 1:1 mapping — each customer has exactly one account. Bridge stores role and temporal relationship metadata. |
+
+### Views - 2 Views
+
+| View | Type | Sources | Relationship |
+|------|------|---------|--------------|
+| __v_purchase__ | Slim | fact_sales, bridge_order_items, dim_customers, dim_dates, dim_time, dim_channels, dim_stores, dim_promotions, dim_payment_methods, dim_shipping_methods, dim_employees, fact_loyalty_points | One row per line item. Exposes `product_key` only; join to dim_products for product attributes. Many:one to dim_products. |
+| __v_purchase_full__ | Full | Same as v_purchase + dim_products, dim_product_categories | Same grain but denormalized: includes product_id, sku, product_name, brand, category_name, category_path. |
 
 ### FK Count Summary
 
