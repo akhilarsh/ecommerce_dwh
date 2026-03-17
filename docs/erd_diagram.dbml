@@ -1,0 +1,452 @@
+// E-Commerce Data Warehouse - Star Schema
+// Schema: ecommerce_db.e_mart
+//
+// Usage: Copy contents to https://dbdiagram.io/d and paste, or use File > Import
+// Relationships display as lines between tables.
+
+Project ecommerce_dwh {
+  database_type: 'Snowflake'
+  Note: 'Star schema for multi-channel retail analytics'
+}
+
+// ===== STATIC DIMENSIONS =====
+Table dim_dates {
+  date_key int [pk, note: 'YYYYMMDD format']
+  full_date date
+  day_of_week int
+  day_name varchar(10)
+  day_of_month int
+  day_of_year int
+  week_of_year int
+  month_number int
+  month_name varchar(10)
+  month_abbr varchar(3)
+  quarter_number int
+  calendar_year int
+  is_weekend boolean
+  is_holiday boolean
+  fiscal_year int
+  fiscal_quarter int
+}
+
+Table dim_time {
+  time_key int [pk, note: 'HHMM format']
+  time_value time
+  hour_24 int
+  minute_of_hour int
+  second_of_minute int
+  am_pm varchar(2)
+  hour_12 int
+  day_part varchar(20)
+  is_business_hours boolean
+  is_peak_shopping boolean
+}
+
+Table dim_channels {
+  channel_key int [pk]
+  channel_id varchar(50)
+  channel_name varchar(100)
+  channel_code varchar(20)
+  channel_type varchar(50)
+  description varchar(500)
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_payment_methods {
+  payment_method_key int [pk]
+  payment_method_id varchar(50)
+  payment_method_name varchar(100)
+  payment_method_code varchar(20)
+  payment_type varchar(50)
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_shipping_methods {
+  shipping_method_key int [pk]
+  shipping_method_id varchar(50)
+  shipping_method_name varchar(100)
+  shipping_method_code varchar(20)
+  carrier varchar(100)
+  estimated_days_min int
+  estimated_days_max int
+  base_cost decimal
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_customer_segments {
+  segment_key int [pk]
+  segment_id varchar(50)
+  segment_name varchar(100)
+  segment_code varchar(20)
+  description varchar(500)
+  min_lifetime_value decimal
+  max_lifetime_value decimal
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_product_categories {
+  category_key int [pk]
+  category_id varchar(50)
+  category_name varchar(100)
+  category_level int
+  parent_category_key int
+  category_path varchar(500)
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_promotions {
+  promotion_key int [pk]
+  promotion_id varchar(50)
+  promotion_name varchar(200)
+  promotion_type varchar(50)
+  promotion_code varchar(50)
+  start_date date
+  end_date date
+  discount_percentage decimal
+  discount_amount decimal
+  min_purchase_amount decimal
+  max_discount_amount decimal
+  is_stackable boolean
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_accounts {
+  account_key int [pk]
+  account_id varchar(50)
+  account_name varchar(200)
+  account_type varchar(50)
+  company_name varchar(200)
+  tax_id varchar(50)
+  tax_exempt_status boolean
+  billing_address_line1 varchar(500)
+  billing_address_line2 varchar(500)
+  billing_city varchar(100)
+  billing_state varchar(50)
+  billing_postal_code varchar(20)
+  billing_country varchar(100)
+  payment_terms varchar(50)
+  credit_limit decimal
+  account_status varchar(50)
+  account_tier varchar(50)
+  registration_date date
+  closure_date date
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+// ===== MASTER DIMENSIONS =====
+Table dim_stores {
+  store_key int [pk]
+  store_id varchar(50)
+  store_name varchar(200)
+  store_type varchar(50)
+  address_line1 varchar(500)
+  address_line2 varchar(500)
+  city varchar(100)
+  state varchar(50)
+  postal_code varchar(20)
+  country varchar(100)
+  region varchar(100)
+  phone_number varchar(20)
+  email varchar(200)
+  opening_date date
+  closing_date date
+  square_footage int
+  is_active boolean
+  latitude decimal
+  longitude decimal
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_products {
+  product_key int [pk]
+  product_id varchar(50)
+  sku varchar(100)
+  product_name varchar(500)
+  brand varchar(100)
+  category_key int
+  description varchar(2000)
+  unit_price decimal
+  unit_cost decimal
+  weight_kg decimal
+  is_active boolean
+  is_discontinued boolean
+  effective_date date
+  end_date date
+  is_current boolean
+  created_at datetime
+  updated_at datetime
+}
+
+Table dim_customers {
+  customer_key int [pk]
+  customer_id varchar(50)
+  first_name varchar(100)
+  last_name varchar(100)
+  full_name varchar(200)
+  email varchar(200)
+  phone_number varchar(20)
+  birth_date date
+  gender varchar(20)
+  address_line1 varchar(500)
+  address_line2 varchar(500)
+  city varchar(100)
+  state varchar(50)
+  postal_code varchar(20)
+  country varchar(100)
+  registration_date date
+  segment_key int
+  account_key int
+  preferred_channel varchar(50)
+  loyalty_program_member boolean
+  loyalty_tier varchar(50)
+  loyalty_points_balance int
+  lifetime_value decimal
+  is_active boolean
+  effective_date date
+  end_date date
+  is_current boolean
+  created_at datetime
+  updated_at datetime
+}
+
+// ===== DEPENDENT DIMENSIONS =====
+Table dim_employees {
+  employee_key int [pk]
+  employee_id varchar(50)
+  first_name varchar(100)
+  last_name varchar(100)
+  full_name varchar(200)
+  email varchar(200)
+  phone_number varchar(20)
+  position varchar(100)
+  department varchar(100)
+  store_key int
+  hire_date date
+  termination_date date
+  salary decimal
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
+// ===== FACT TABLES =====
+Table fact_sales {
+  sale_key int [pk]
+  order_id varchar(50)
+  date_key int
+  time_key int
+  customer_key int
+  store_key int
+  channel_key int
+  promotion_key int
+  payment_method_key int
+  shipping_method_key int
+  employee_key int
+  quantity int
+  gross_amount decimal
+  discount_amount decimal
+  net_amount decimal
+  tax_amount decimal
+  shipping_amount decimal
+  total_amount decimal
+  order_status varchar(50)
+  is_online boolean
+  created_at datetime
+}
+
+Table fact_inventory_snapshots {
+  inventory_snapshot_key int [pk]
+  date_key int
+  product_key int
+  store_key int
+  quantity_on_hand int
+  quantity_reserved int
+  quantity_available int
+  reorder_point int
+  is_below_reorder_point boolean
+  days_of_supply decimal
+  created_at datetime
+}
+
+Table fact_customer_interactions {
+  interaction_key int [pk]
+  interaction_id varchar(50)
+  date_key int
+  time_key int
+  customer_key int
+  channel_key int
+  store_key int
+  employee_key int
+  product_key int
+  sale_key int
+  interaction_type varchar(100)
+  device_type varchar(50)
+  session_id varchar(100)
+  page_url varchar(1000)
+  duration_seconds int
+  is_converted boolean
+  created_at datetime
+}
+
+Table fact_loyalty_points {
+  loyalty_transaction_key int [pk]
+  transaction_id varchar(50)
+  date_key int
+  time_key int
+  customer_key int
+  sale_key int
+  channel_key int
+  transaction_type varchar(50)
+  points int
+  points_balance_after int
+  description varchar(500)
+  expiration_date date
+  created_at datetime
+}
+
+// ===== BRIDGE TABLES =====
+Table bridge_order_items {
+  order_item_key int [pk]
+  sale_key int
+  product_key int
+  line_number int
+  quantity int
+  unit_price decimal
+  discount_amount decimal
+  line_total decimal
+  is_gift boolean
+  gift_message varchar(500)
+  created_at datetime
+}
+
+Table bridge_product_promotions {
+  product_promotion_key int [pk]
+  product_key int
+  promotion_key int
+  is_featured boolean
+  priority int
+  created_at datetime
+}
+
+Table bridge_account_customers {
+  account_customer_key int [pk]
+  account_key int
+  customer_key int
+  role varchar(50)
+  is_primary_contact boolean
+  effective_date date
+  end_date date
+  is_current boolean
+  created_at datetime
+}
+
+// ===== VIEWS (logical, for reference) =====
+Table v_purchase {
+  sale_key int [note: 'VIEW - slim, product_key only']
+  order_id varchar(50)
+  order_item_key int
+  line_number int
+  product_key int
+  customer_key int
+  customer_id varchar(50)
+  order_date date
+  line_quantity int
+  unit_price decimal
+  line_total decimal
+  total_amount decimal
+  channel_name varchar(100)
+  store_name varchar(200)
+  promotion_name varchar(200)
+  payment_method_name varchar(100)
+  shipping_method_name varchar(100)
+  points_earned int
+}
+
+Table v_purchase_full {
+  sale_key int [note: 'VIEW - full denormalized']
+  order_id varchar(50)
+  order_item_key int
+  product_key int
+  product_id varchar(50)
+  sku varchar(100)
+  product_name varchar(500)
+  brand varchar(100)
+  category_name varchar(100)
+  category_path varchar(500)
+  customer_key int
+  line_total decimal
+  total_amount decimal
+}
+
+// ===== RELATIONSHIPS =====
+
+// Dimension hierarchy
+Ref: dim_product_categories.parent_category_key > dim_product_categories.category_key
+Ref: dim_products.category_key > dim_product_categories.category_key
+Ref: dim_customers.segment_key > dim_customer_segments.segment_key
+Ref: dim_customers.account_key > dim_accounts.account_key
+Ref: dim_employees.store_key > dim_stores.store_key
+
+// fact_sales
+Ref: fact_sales.date_key > dim_dates.date_key
+Ref: fact_sales.time_key > dim_time.time_key
+Ref: fact_sales.customer_key > dim_customers.customer_key
+Ref: fact_sales.store_key > dim_stores.store_key
+Ref: fact_sales.channel_key > dim_channels.channel_key
+Ref: fact_sales.promotion_key > dim_promotions.promotion_key
+Ref: fact_sales.payment_method_key > dim_payment_methods.payment_method_key
+Ref: fact_sales.shipping_method_key > dim_shipping_methods.shipping_method_key
+Ref: fact_sales.employee_key > dim_employees.employee_key
+
+// fact_inventory_snapshots
+Ref: fact_inventory_snapshots.date_key > dim_dates.date_key
+Ref: fact_inventory_snapshots.product_key > dim_products.product_key
+Ref: fact_inventory_snapshots.store_key > dim_stores.store_key
+
+// fact_customer_interactions
+Ref: fact_customer_interactions.date_key > dim_dates.date_key
+Ref: fact_customer_interactions.time_key > dim_time.time_key
+Ref: fact_customer_interactions.customer_key > dim_customers.customer_key
+Ref: fact_customer_interactions.channel_key > dim_channels.channel_key
+Ref: fact_customer_interactions.store_key > dim_stores.store_key
+Ref: fact_customer_interactions.employee_key > dim_employees.employee_key
+Ref: fact_customer_interactions.product_key > dim_products.product_key
+Ref: fact_customer_interactions.sale_key > fact_sales.sale_key
+
+// fact_loyalty_points
+Ref: fact_loyalty_points.date_key > dim_dates.date_key
+Ref: fact_loyalty_points.time_key > dim_time.time_key
+Ref: fact_loyalty_points.customer_key > dim_customers.customer_key
+Ref: fact_loyalty_points.sale_key > fact_sales.sale_key
+Ref: fact_loyalty_points.channel_key > dim_channels.channel_key
+
+// bridge_order_items
+Ref: bridge_order_items.sale_key > fact_sales.sale_key
+Ref: bridge_order_items.product_key > dim_products.product_key
+
+// bridge_product_promotions
+Ref: bridge_product_promotions.product_key > dim_products.product_key
+Ref: bridge_product_promotions.promotion_key > dim_promotions.promotion_key
+
+// bridge_account_customers
+Ref: bridge_account_customers.account_key > dim_accounts.account_key
+Ref: bridge_account_customers.customer_key > dim_customers.customer_key
+
+// Views -> dim_products (many:one)
+Ref: v_purchase.product_key > dim_products.product_key
+Ref: v_purchase_full.product_key > dim_products.product_key

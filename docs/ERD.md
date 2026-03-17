@@ -405,7 +405,7 @@ erDiagram
     %% ===== RELATIONSHIPS =====
 
     %% Dimension FK dependencies
-    dim_customers ||--|| dim_accounts : "account_key"
+    dim_customers }o--|| dim_accounts : "account_key"
     dim_customers ||--o{ dim_customer_segments : "segment_key"
     dim_products ||--o{ dim_product_categories : "category_key"
     dim_employees ||--o{ dim_stores : "store_key"
@@ -473,13 +473,13 @@ erDiagram
 | __dim_shipping_methods__ | `shipping_method_key` | None | Delivery options (Standard, Express, Same Day) with carriers. |
 | __dim_product_categories__ | `category_key` | None | Product hierarchy (category > subcategory). Self-referencing via `parent_category_key` for nested hierarchies. Parent to `dim_products`. |
 | __dim_customer_segments__ | `segment_key` | None | Customer classification groups (High Value, Regular, New) with LTV thresholds. Parent to `dim_customers`. |
-| __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). 1:1 mapping with customers. Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
+| __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). Many customers per account (household, B2B). Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
 
 ### Dimension Tables (With FK Dependencies) - 3 Tables
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
-| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts` | Each customer belongs to one segment and one account (1:1). SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
+| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts` | Each customer belongs to one segment and one account (many:one). SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
 | __dim_products__ | `product_key` | `category_key` → `dim_product_categories` | Each product belongs to one category. SCD Type 2 table - tracks price/attribute changes over time. Multiple rows per product_id possible. |
 | __dim_employees__ | `employee_key` | `store_key` → `dim_stores` | Each employee works at one store. Links sales associates to physical locations. |
 
@@ -522,7 +522,7 @@ erDiagram
 | __bridge_product_promotions__ | `product_promotion_key` | `product_key` → `dim_products` (required) | __Resolves many-to-many__ between products and promotions. |
 | | | `promotion_key` → `dim_promotions` (required) | One promotion applies to many products; one product can have many promotions. Contains product-specific discount details. |
 | __bridge_account_customers__ | `account_customer_key` | `account_key` → `dim_accounts` (required) | __Maps account-customer relationships__ with roles. |
-| | | `customer_key` → `dim_customers` (required) | 1:1 mapping — each customer has exactly one account. Bridge stores role and temporal relationship metadata. |
+| | | `customer_key` → `dim_customers` (required) | Many:one — many customers can share one account (household, B2B). Bridge stores role and temporal relationship metadata. |
 
 ### Views - 2 Views
 
@@ -553,10 +553,10 @@ erDiagram
 
 | Table | Role | Data in This Scenario |
 |---|---|---|
-| __dim_accounts__ | Account context | Sarah's account (account_key=10042, type="Individual", tier="Premium", status="Active"). 1:1 with her customer record. If her household signed up together, the account_type would be "Household". B2B customers have company_name, tax_id, credit_limit here. |
+| __dim_accounts__ | Account context | Sarah's account (account_key=10042, type="Individual", tier="Premium", status="Active"). Many customers can share one account (e.g. Household has multiple members). B2B customers have company_name, tax_id, credit_limit here. |
 | __dim_customers__ | WHO bought | Sarah Chen, customer_id=`C-10042`, Gold tier, segment_key -> "High Value", account_key -> 10042. SCD Type 2 means if she later upgrades to Platinum, we keep both versions with effective/expiration dates. |
 | __dim_customer_segments__ | Customer classification | "High Value" segment -- LTV between $5,000-$25,000, min 12 purchases/year. Sarah's segment_key in dim_customers points here. |
-| __bridge_account_customers__ | Account-customer link | account_key=10042, customer_key=10042, role="Owner", is_primary_contact=TRUE. Maps the 1:1 relationship with role metadata. |
+| __bridge_account_customers__ | Account-customer link | account_key=10042, customer_key=10042, role="Owner", is_primary_contact=TRUE. Maps many:one (many customers per account) with role metadata. |
 | __dim_dates__ | WHEN (calendar) | date_key=`20251128`, Black Friday, Q4, is_holiday=TRUE, is_weekend=FALSE. Every fact table references this same row for Nov 28. |
 | __dim_time__ | WHEN (time of day) | time_key=`1435`, hour_24=14, day_part="Afternoon", is_business_hours=TRUE. |
 | __dim_stores__ | WHERE | "Downtown Flagship", store_type="Flagship", city="San Francisco". The employee and the in-store interaction both reference this. |
@@ -586,7 +586,7 @@ __Fact-to-fact link:__ `fact_customer_interactions.sale_key` and `fact_loyalty_p
 
 __SCD Type 2 (dim_customers, dim_products):__ When Sarah's loyalty tier changes from Gold to Platinum, a new row is inserted with `is_current=TRUE` and a new `effective_date`. The old row gets `end_date` set and `is_current=FALSE`. Historical sales still join to the old row (Gold tier at time of purchase), while current reports see Platinum. Same logic applies when product prices change.
 
-__Account-customer 1:1:__ Each customer has exactly one account (`dim_customers.account_key -> dim_accounts.account_key`). The `bridge_account_customers` table records the relationship with role metadata (Owner, Admin, etc.) and temporal tracking. This supports both B2C (Individual accounts) and B2B (Business/Corporate accounts with billing terms and credit limits).
+__Account-customer many:one:__ Many customers can share one account (`dim_customers.account_key -> dim_accounts.account_key`). The `bridge_account_customers` table records the relationship with role metadata (Owner, Admin, etc.) and temporal tracking. Supports B2C (Individual accounts), Household (multiple family members), and B2B (Business/Corporate accounts with multiple buyers and billing terms).
 
 __Dimension-to-dimension:__ `dim_customers -> dim_customer_segments`, `dim_customers -> dim_accounts`, `dim_products -> dim_product_categories`, `dim_employees -> dim_stores` -- these model hierarchical/classification relationships within the dimensional layer itself.
 
