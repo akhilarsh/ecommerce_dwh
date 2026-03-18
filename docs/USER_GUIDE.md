@@ -313,7 +313,7 @@ dwh load-data --mode initial --truncate
 
 ### Configuration File
 
-Data volumes are configured in `src/data_generators/datagen_config.yaml`.
+Data volumes are configured in `datagen_config.yaml` (project root).
 
 The YAML supports environment variable overrides using `${ENV_VAR || default}` syntax:
 

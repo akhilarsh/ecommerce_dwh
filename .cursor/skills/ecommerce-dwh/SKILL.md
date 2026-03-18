@@ -21,7 +21,7 @@ Star schema (Kimball dimensional modeling) on Snowflake. 20 tables: 4 fact, 13 d
 | Workflows | `src/workflows/` |
 | Connectors | `src/connectors/` |
 | Tests | `tests/` |
-| Config | `src/data_generators/datagen_config.yaml`, `src/config/` |
+| Config | `datagen_config.yaml` (root), `src/config/` |
 
 **Always activate venv:** `source venv/bin/activate && <command>`
 
@@ -135,7 +135,7 @@ Instantiate the generator and call it in the helper's `generate()` method. Updat
 
 ### Step 5: Update datagen_config.yaml
 
-Add volume entry under `initial_load:` in `src/data_generators/datagen_config.yaml`:
+Add volume entry under `initial_load:` in `datagen_config.yaml` (project root):
 
 ```yaml
 initial_load:

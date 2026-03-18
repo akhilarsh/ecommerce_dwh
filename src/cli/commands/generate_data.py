@@ -12,7 +12,7 @@ Commands (aligned with helper structure):
 Configuration sources (priority order):
 1. CLI arguments (highest priority)
 2. Environment variables (DATAGEN_* prefix)
-3. YAML config file (src/data_generators/datagen_config.yaml)
+3. YAML config file (datagen_config.yaml at project root)
 """
 
 import sys

@@ -460,7 +460,7 @@ with SnowflakeConnector(config) as conn:
 src/config/snowflake_config.yaml (in git)
     └── Connection configuration template
 
-src/data_generators/datagen_config.yaml (in git)
+datagen_config.yaml at project root (in git)
     ├── initial_load: customer/product/sales counts
     ├── incremental: date ranges and counts
     ├── paths: output directories

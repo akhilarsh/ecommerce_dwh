@@ -237,7 +237,7 @@ src/
 │   └── data_load_workflow.py    # Data loading workflow
 │
 ├── data_generators/
-│   ├── datagen_config.yaml      # Data generation configuration
+│   ├── datagen_config.yaml      # Data generation config (project root)
 │   ├── config.py                # DataGenConfig dataclass
 │   ├── generator.py             # Main DataGenerator class
 │   ├── helpers/                 # Domain helpers

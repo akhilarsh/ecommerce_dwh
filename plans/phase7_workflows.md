@@ -171,7 +171,7 @@ dwh create-and-load --skip-fk
 
 ### Data Configuration
 
-Data volumes are read from `src/data_generators/datagen_config.yaml`:
+Data volumes are read from `datagen_config.yaml` (project root):
 
 ```yaml
 initial_load:

@@ -533,7 +533,7 @@ Multiple rows can exist for the same business key (`customer_id`, `product_id`).
 |------|---------|
 | `.env` | Snowflake credentials (not in git) |
 | `src/config/snowflake_config.yaml` | Connection settings template |
-| `src/data_generators/datagen_config.yaml` | Data generation volumes and settings |
+| `datagen_config.yaml` (project root) | Data generation volumes and settings |
 | `~/.dwh/config.yaml` | Global DWH platform config |
 | `.dwh.yaml` | Local project DWH platform config |
 

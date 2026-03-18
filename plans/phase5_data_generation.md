@@ -96,11 +96,12 @@ Config-driven data generation with a single `DataGenerator` that delegates to do
 ## Directory Structure
 
 ```
+project_root/
+├── datagen_config.yaml         # THE source of truth (project root)
 src/data_generators/
 ├── __init__.py                 # Public API exports
 ├── generator.py                # DataGenerator - main entry point
 ├── config.py                   # DataGenConfig dataclass + load_config()
-├── datagen_config.yaml         # THE source of truth
 ├── relationships.py            # ReferentialIntegrityHandler
 │
 ├── helpers/                    # Domain helpers
