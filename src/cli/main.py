@@ -24,6 +24,7 @@ Configuration priority:
     3. Global config (~/.dwh/config.yaml)
 """
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -359,19 +360,20 @@ def generate_promotion(
 
 @cli.command("cache-keys")
 @click.option("--output", "-o", default=None, help="Output path (default from DATAGEN_KEYS_CACHE env)")
-@click.option("--schema", "-s", default="ECOMMERCE_DWH", help="Schema name in Snowflake")
+@click.option("--schema", "-s", default=None, help="Schema name (default: SNOWFLAKE_SCHEMA env or ECOMMERCE_DWH)")
 @click.pass_context
 def cache_keys(
     ctx: click.Context,
     output: Optional[str],
-    schema: str
+    schema: Optional[str]
 ):
     """Cache existing surrogate keys from Snowflake for incremental generation."""
     dwh = require_dwh_platform(ctx)
     from src.cli.commands.generate_data import cache_keys_command
+    resolved_schema = schema or os.getenv("SNOWFLAKE_SCHEMA", "ECOMMERCE_DWH")
     success = cache_keys_command(
         output_file=output,
-        schema=schema,
+        schema=resolved_schema,
         verbose=ctx.obj.get("verbose", False)
     )
     sys.exit(0 if success else 1)
