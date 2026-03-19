@@ -20,6 +20,7 @@ from src.models.dimension_tables.dim_channels import DimChannels
 from src.models.dimension_tables.dim_payment_methods import DimPaymentMethods
 from src.models.dimension_tables.dim_shipping_methods import DimShippingMethods
 from src.models.dimension_tables.dim_customer_segments import DimCustomerSegments
+from src.models.dimension_tables.dim_loyalty_tiers import DimLoyaltyTiers
 from src.models.dimension_tables.dim_product_categories import DimProductCategories
 from src.models.dimension_tables.dim_promotions import DimPromotions
 from src.models.dimension_tables.dim_accounts import DimAccounts
@@ -66,6 +67,7 @@ class SchemaManager:
                 DimPaymentMethods(),
                 DimShippingMethods(),
                 DimCustomerSegments(),
+                DimLoyaltyTiers(),
                 DimProductCategories(),
                 DimPromotions(),
                 DimAccounts(),

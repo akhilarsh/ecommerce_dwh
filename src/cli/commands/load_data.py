@@ -193,12 +193,12 @@ def load_data_command(
             resume = False  # No matching state, start fresh
     
     # Display header
+    from src.connectors import get_dwh_display_name
+    platform_display = get_dwh_display_name(platform)
     mode_display = mode.capitalize()
     if table_name:
         console.print(f"\n[bold blue]Loading Data ({mode_display}): {table_name}[/bold blue]\n")
     else:
-        from src.connectors import get_dwh_display_name
-        platform_display = get_dwh_display_name(platform)
         console.print(f"\n[bold blue]Loading {mode_display} Data into {platform_display}{resume_info}[/bold blue]\n")
     
     # Check input directory

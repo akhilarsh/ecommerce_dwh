@@ -124,6 +124,7 @@ class DataGenerator:
         from .entities.dim_payment_methods import DimPaymentMethodsGenerator
         from .entities.dim_shipping_methods import DimShippingMethodsGenerator
         from .entities.dim_customer_segments import DimCustomerSegmentsGenerator
+        from .entities.dim_loyalty_tiers import DimLoyaltyTiersGenerator
         
         result = DataGenerationResult()
         
@@ -150,7 +151,13 @@ class DataGenerator:
         segments = segment_gen.generate(start_key=self.keys_loader.get_next_key("dim_customer_segments"))
         result.add_dimension(segments)
         self.keys_loader.update_after_generation("dim_customer_segments", segments.surrogate_keys)
-        
+
+        # Loyalty tiers
+        loyalty_tier_gen = DimLoyaltyTiersGenerator(self.config)
+        loyalty_tiers = loyalty_tier_gen.generate(start_key=self.keys_loader.get_next_key("dim_loyalty_tiers"))
+        result.add_dimension(loyalty_tiers)
+        self.keys_loader.update_after_generation("dim_loyalty_tiers", loyalty_tiers.surrogate_keys)
+
         return result
     
     def generate_incremental(

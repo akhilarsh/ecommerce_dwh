@@ -13,6 +13,7 @@ from .dim_channels import DimChannelsGenerator
 from .dim_payment_methods import DimPaymentMethodsGenerator
 from .dim_shipping_methods import DimShippingMethodsGenerator
 from .dim_customer_segments import DimCustomerSegmentsGenerator
+from .dim_loyalty_tiers import DimLoyaltyTiersGenerator
 from .dim_product_categories import DimProductCategoriesGenerator
 from .dim_promotions import DimPromotionsGenerator
 from .dim_stores import DimStoresGenerator
@@ -41,6 +42,7 @@ __all__ = [
     "DimPaymentMethodsGenerator",
     "DimShippingMethodsGenerator",
     "DimCustomerSegmentsGenerator",
+    "DimLoyaltyTiersGenerator",
     "DimProductCategoriesGenerator",
     "DimPromotionsGenerator",
     "DimStoresGenerator",

@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 from .base_helper import BaseHelper, DataGenerationResult, GeneratedData
 from ..entities.dim_accounts import DimAccountsGenerator
 from ..entities.dim_customers import DimCustomersGenerator
+from ..entities.dim_loyalty_tiers import DimLoyaltyTiersGenerator
 from ..entities.fact_sales import FactSalesGenerator
 from ..entities.bridge_order_items import BridgeOrderItemsGenerator
 from ..entities.bridge_account_customers import BridgeAccountCustomersGenerator
@@ -211,14 +212,22 @@ class SalesHelper(BaseHelper):
         num_customers = count or self._get_volume("customers")
         start_key = self._get_next_key("dim_customers")
         segment_keys = self._get_dimension_keys("dim_customer_segments")
-        
+
+        # Reconstruct tier data by pairing stored keys with static tier definitions (ordered)
+        tier_keys = self._get_dimension_keys("dim_loyalty_tiers")
+        loyalty_tier_data = [
+            {"tier_key": key, "min_points": tier["min_points"], "max_points": tier["max_points"]}
+            for key, tier in zip(tier_keys, DimLoyaltyTiersGenerator.TIERS)
+        ] if tier_keys else None
+
         self.logger.info(f"Generating {num_customers} customers")
-        
+
         return self.customer_gen.generate(
             count=num_customers,
             start_key=start_key,
             segment_keys=segment_keys,
             account_keys=account_keys,
+            loyalty_tier_data=loyalty_tier_data,
             registration_date=registration_date,
             start_date=start_date,
             end_date=end_date
