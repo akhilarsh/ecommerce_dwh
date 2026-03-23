@@ -17,7 +17,7 @@ SELECT
     c.first_name,
     c.last_name,
     c.email,
-    c.loyalty_tier,
+    lt.tier_name AS loyalty_tier,
     c.loyalty_program_member,
     dd.full_date AS order_date,
     dd.calendar_year,
@@ -79,6 +79,7 @@ LEFT JOIN ecommerce_db.e_mart.dim_payment_methods pm ON fs.payment_method_key = 
 LEFT JOIN ecommerce_db.e_mart.dim_shipping_methods sm ON fs.shipping_method_key = sm.shipping_method_key
 LEFT JOIN ecommerce_db.e_mart.dim_employees emp ON fs.employee_key = emp.employee_key
 LEFT JOIN ecommerce_db.e_mart.dim_product_categories pc ON p.category_key = pc.category_key
+LEFT JOIN ecommerce_db.e_mart.dim_loyalty_tiers lt ON c.loyalty_tier_key = lt.tier_key
 LEFT JOIN (
     SELECT sale_key, SUM(points) AS points_earned
     FROM ecommerce_db.e_mart.fact_loyalty_points
@@ -99,7 +100,7 @@ SELECT
     c.first_name,
     c.last_name,
     c.email,
-    c.loyalty_tier,
+    lt.tier_name AS loyalty_tier,
     c.loyalty_program_member,
     dd.full_date AS order_date,
     dd.calendar_year,
@@ -151,6 +152,7 @@ LEFT JOIN ecommerce_db.e_mart.dim_promotions prom ON fs.promotion_key = prom.pro
 LEFT JOIN ecommerce_db.e_mart.dim_payment_methods pm ON fs.payment_method_key = pm.payment_method_key
 LEFT JOIN ecommerce_db.e_mart.dim_shipping_methods sm ON fs.shipping_method_key = sm.shipping_method_key
 LEFT JOIN ecommerce_db.e_mart.dim_employees emp ON fs.employee_key = emp.employee_key
+LEFT JOIN ecommerce_db.e_mart.dim_loyalty_tiers lt ON c.loyalty_tier_key = lt.tier_key
 LEFT JOIN (
     SELECT sale_key, SUM(points) AS points_earned
     FROM ecommerce_db.e_mart.fact_loyalty_points

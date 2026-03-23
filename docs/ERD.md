@@ -142,6 +142,18 @@ erDiagram
         TIMESTAMP_NTZ updated_at
     }
 
+    dim_loyalty_tiers {
+        NUMBER tier_key PK
+        VARCHAR tier_id
+        VARCHAR tier_name
+        NUMBER min_points
+        NUMBER max_points
+        VARCHAR description
+        BOOLEAN is_active
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
+    }
+
     dim_accounts {
         NUMBER account_key PK
         VARCHAR account_id
@@ -189,7 +201,7 @@ erDiagram
         NUMBER account_key FK
         VARCHAR preferred_channel
         BOOLEAN loyalty_program_member
-        VARCHAR loyalty_tier
+        NUMBER loyalty_tier_key FK
         NUMBER loyalty_points_balance
         NUMBER lifetime_value
         BOOLEAN is_active
@@ -363,7 +375,7 @@ erDiagram
         VARCHAR first_name
         VARCHAR last_name
         VARCHAR email
-        VARCHAR loyalty_tier
+        VARCHAR loyalty_tier_name
         DATE order_date
         NUMBER line_quantity
         NUMBER unit_price
@@ -385,6 +397,10 @@ erDiagram
         NUMBER line_number
         NUMBER customer_key FK
         NUMBER product_key FK
+        VARCHAR customer_id
+        VARCHAR first_name
+        VARCHAR last_name
+        VARCHAR loyalty_tier_name
         VARCHAR product_id
         VARCHAR sku
         VARCHAR product_name
@@ -407,6 +423,7 @@ erDiagram
     %% Dimension FK dependencies
     dim_customers }o--|| dim_accounts : "account_key"
     dim_customers ||--o{ dim_customer_segments : "segment_key"
+    dim_customers }o--o| dim_loyalty_tiers : "loyalty_tier_key"
     dim_products ||--o{ dim_product_categories : "category_key"
     dim_employees ||--o{ dim_stores : "store_key"
 
@@ -460,7 +477,7 @@ erDiagram
 
 ## Table Relationships:
 
-### Dimension Tables (No FK Dependencies) - 10 Tables
+### Dimension Tables (No FK Dependencies) - 11 Tables
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
@@ -473,13 +490,14 @@ erDiagram
 | __dim_shipping_methods__ | `shipping_method_key` | None | Delivery options (Standard, Express, Same Day) with carriers. |
 | __dim_product_categories__ | `category_key` | None | Product hierarchy (category > subcategory). Self-referencing via `parent_category_key` for nested hierarchies. Parent to `dim_products`. |
 | __dim_customer_segments__ | `segment_key` | None | Customer classification groups (High Value, Regular, New) with LTV thresholds. Parent to `dim_customers`. |
+| __dim_loyalty_tiers__ | `tier_key` | None | Loyalty program tier definitions with point thresholds (Bronze 0–999, Silver 1,000–3,999, Gold 4,000–9,999, Platinum 10,000+). Parent to `dim_customers`. |
 | __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). Many customers per account (household, B2B). Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
 
 ### Dimension Tables (With FK Dependencies) - 3 Tables
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
-| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts` | Each customer belongs to one segment and one account (many:one). SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
+| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts`, `loyalty_tier_key` → `dim_loyalty_tiers` | Each customer belongs to one segment and one account (many:one). `loyalty_tier_key` is NULL for non-members; derived from `loyalty_points_balance` against tier thresholds — not stored statically. SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
 | __dim_products__ | `product_key` | `category_key` → `dim_product_categories` | Each product belongs to one category. SCD Type 2 table - tracks price/attribute changes over time. Multiple rows per product_id possible. |
 | __dim_employees__ | `employee_key` | `store_key` → `dim_stores` | Each employee works at one store. Links sales associates to physical locations. |
 
@@ -528,18 +546,18 @@ erDiagram
 
 | View | Type | Sources | Relationship |
 |------|------|---------|--------------|
-| __v_purchase__ | Slim | fact_sales, bridge_order_items, dim_customers, dim_dates, dim_time, dim_channels, dim_stores, dim_promotions, dim_payment_methods, dim_shipping_methods, dim_employees, fact_loyalty_points | One row per line item. Exposes `product_key` only; join to dim_products for product attributes. Many:one to dim_products. |
-| __v_purchase_full__ | Full | Same as v_purchase + dim_products, dim_product_categories | Same grain but denormalized: includes product_id, sku, product_name, brand, category_name, category_path. |
+| __v_purchase__ | Slim | fact_sales, bridge_order_items, dim_customers, dim_loyalty_tiers, dim_dates, dim_time, dim_channels, dim_stores, dim_promotions, dim_payment_methods, dim_shipping_methods, dim_employees, fact_loyalty_points | One row per line item. Joins `dim_loyalty_tiers` to resolve `loyalty_tier_key` → `loyalty_tier_name`. Exposes `product_key` only; join to dim_products for product attributes. Many:one to dim_products. |
+| __v_purchase_full__ | Full | Same as v_purchase + dim_products, dim_product_categories | Same grain but denormalized: includes product_id, sku, product_name, brand, category_name, category_path, and `loyalty_tier_name` from dim_loyalty_tiers. |
 
 ### FK Count Summary
 
 | Table Type | Count | Total FKs |
 |------------|-------|-----------|
-| Dimensions (no FK) | 10 | 0 |
-| Dimensions (with FK) | 3 | 4 |
+| Dimensions (no FK) | 11 | 0 |
+| Dimensions (with FK) | 3 | 5 |
 | Fact Tables | 4 | 24 |
 | Bridge Tables | 3 | 6 |
-| **Total** | **20** | **34** |
+| **Total** | **21** | **35** |
 
 ---
 
@@ -554,8 +572,9 @@ erDiagram
 | Table | Role | Data in This Scenario |
 |---|---|---|
 | __dim_accounts__ | Account context | Sarah's account (account_key=10042, type="Individual", tier="Premium", status="Active"). Many customers can share one account (e.g. Household has multiple members). B2B customers have company_name, tax_id, credit_limit here. |
-| __dim_customers__ | WHO bought | Sarah Chen, customer_id=`C-10042`, Gold tier, segment_key -> "High Value", account_key -> 10042. SCD Type 2 means if she later upgrades to Platinum, we keep both versions with effective/expiration dates. |
+| __dim_customers__ | WHO bought | Sarah Chen, customer_id=`C-10042`, loyalty_tier_key -> Gold tier (12,450 points), segment_key -> "High Value", account_key -> 10042. SCD Type 2 means if she later earns enough points to hit Platinum, a new row is inserted with updated loyalty_tier_key and effective_date. |
 | __dim_customer_segments__ | Customer classification | "High Value" segment -- LTV between $5,000-$25,000, min 12 purchases/year. Sarah's segment_key in dim_customers points here. |
+| __dim_loyalty_tiers__ | Tier definition | Gold tier: min_points=4,000, max_points=9,999. Sarah's 12,450 points actually qualify her for Platinum (10,000+). loyalty_tier_key is a FK to this table — never stored as a raw string. |
 | __bridge_account_customers__ | Account-customer link | account_key=10042, customer_key=10042, role="Owner", is_primary_contact=TRUE. Maps many:one (many customers per account) with role metadata. |
 | __dim_dates__ | WHEN (calendar) | date_key=`20251128`, Black Friday, Q4, is_holiday=TRUE, is_weekend=FALSE. Every fact table references this same row for Nov 28. |
 | __dim_time__ | WHEN (time of day) | time_key=`1435`, hour_24=14, day_part="Afternoon", is_business_hours=TRUE. |
@@ -588,6 +607,6 @@ __SCD Type 2 (dim_customers, dim_products):__ When Sarah's loyalty tier changes 
 
 __Account-customer many:one:__ Many customers can share one account (`dim_customers.account_key -> dim_accounts.account_key`). The `bridge_account_customers` table records the relationship with role metadata (Owner, Admin, etc.) and temporal tracking. Supports B2C (Individual accounts), Household (multiple family members), and B2B (Business/Corporate accounts with multiple buyers and billing terms).
 
-__Dimension-to-dimension:__ `dim_customers -> dim_customer_segments`, `dim_customers -> dim_accounts`, `dim_products -> dim_product_categories`, `dim_employees -> dim_stores` -- these model hierarchical/classification relationships within the dimensional layer itself.
+__Dimension-to-dimension:__ `dim_customers -> dim_customer_segments`, `dim_customers -> dim_accounts`, `dim_customers -> dim_loyalty_tiers`, `dim_products -> dim_product_categories`, `dim_employees -> dim_stores` -- these model hierarchical/classification relationships within the dimensional layer itself.
 
 ---

@@ -134,9 +134,10 @@ class DimAccountsGenerator(BaseEntityGenerator):
             closure_date = None
             is_active = account_status == "Active"
             if account_status == "Closed":
+                closure_end = self.config.dates.end or "today"
                 closure_date = self.faker.date_between(
                     start_date=registration_date,
-                    end_date="today"
+                    end_date=closure_end
                 )
 
             record = {

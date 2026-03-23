@@ -20,6 +20,7 @@ from .dim_stores import DimStoresGenerator
 from .dim_employees import DimEmployeesGenerator
 from .dim_products import DimProductsGenerator
 from .dim_customers import DimCustomersGenerator
+from .dim_accounts import DimAccountsGenerator
 
 # Fact generators
 from .fact_sales import FactSalesGenerator
@@ -30,6 +31,7 @@ from .fact_loyalty import FactLoyaltyPointsGenerator
 # Bridge generators
 from .bridge_order_items import BridgeOrderItemsGenerator
 from .bridge_product_promotions import BridgeProductPromotionsGenerator
+from .bridge_account_customers import BridgeAccountCustomersGenerator
 
 __all__ = [
     # Base
@@ -49,6 +51,7 @@ __all__ = [
     "DimEmployeesGenerator",
     "DimProductsGenerator",
     "DimCustomersGenerator",
+    "DimAccountsGenerator",
     # Facts
     "FactSalesGenerator",
     "FactInventorySnapshotsGenerator",
@@ -57,4 +60,5 @@ __all__ = [
     # Bridges
     "BridgeOrderItemsGenerator",
     "BridgeProductPromotionsGenerator",
+    "BridgeAccountCustomersGenerator",
 ]
