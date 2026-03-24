@@ -32,7 +32,7 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 3. __fact_customer_interactions__ - Customer touchpoints (web visits, store visits)
 4. __fact_loyalty_points__ - Loyalty program transactions
 
-#### Dimension Tables (13)
+#### Dimension Tables (14)
 
 1. __dim_customers__ - Customer master data (SCD Type 2 for history tracking)
 2. __dim_products__ - Product catalog with attributes
@@ -47,6 +47,7 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 11. __dim_customer_segments__ - Customer segmentation groups
 12. __dim_employees__ - Store/sales associates
 13. __dim_accounts__ - Customer accounts (individual, household, business, corporate)
+14. __dim_loyalty_tiers__ - Loyalty program tier definitions with point thresholds (Bronze, Silver, Gold, Platinum)
 
 #### Bridge Tables (3)
 

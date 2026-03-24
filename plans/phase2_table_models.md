@@ -6,7 +6,7 @@ duration_estimate: 2-4 hours
 overview: "Define all 20 database tables and implement DDL generation for CREATE TABLE statements and FK constraints."
 deliverables:
   - id: dim-tables
-    content: All dimension table models (13 tables)
+    content: All dimension table models (14 tables)
     status: completed
   - id: fact-tables
     content: All fact table models (4 tables)
@@ -15,7 +15,7 @@ deliverables:
     content: All bridge table models (3 tables)
     status: completed
   - id: ddl-generator
-    content: DDL generator for CREATE TABLE (20 tables generated)
+    content: DDL generator for CREATE TABLE (21 tables generated)
     status: completed
   - id: constraint-gen
     content: Constraint generator for FK/PK (35 foreign keys)
@@ -39,7 +39,7 @@ Define all database tables and implement DDL generation.
 
 ## Tables Defined
 
-### Dimension Tables (13)
+### Dimension Tables (14)
 
 | Table | File | SCD Type |
 |-------|------|----------|
@@ -49,6 +49,7 @@ Define all database tables and implement DDL generation.
 | dim_payment_methods | `src/models/dimension_tables/dim_payment_methods.py` | Type 1 |
 | dim_shipping_methods | `src/models/dimension_tables/dim_shipping_methods.py` | Type 1 |
 | dim_customer_segments | `src/models/dimension_tables/dim_customer_segments.py` | Type 1 |
+| dim_loyalty_tiers | `src/models/dimension_tables/dim_loyalty_tiers.py` | Type 1 |
 | dim_product_categories | `src/models/dimension_tables/dim_product_categories.py` | Type 1 |
 | dim_promotions | `src/models/dimension_tables/dim_promotions.py` | Type 1 |
 | dim_accounts | `src/models/dimension_tables/dim_accounts.py` | Type 1 |
