@@ -32,7 +32,7 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 3. __fact_customer_interactions__ - Customer touchpoints (web visits, store visits)
 4. __fact_loyalty_points__ - Loyalty program transactions
 
-#### Dimension Tables (13)
+#### Dimension Tables (14)
 
 1. __dim_customers__ - Customer master data (SCD Type 2 for history tracking)
 2. __dim_products__ - Product catalog with attributes
@@ -47,6 +47,7 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 11. __dim_customer_segments__ - Customer segmentation groups
 12. __dim_employees__ - Store/sales associates
 13. __dim_accounts__ - Customer accounts (individual, household, business, corporate)
+14. __dim_loyalty_tiers__ - Loyalty program tier definitions with point thresholds (Bronze, Silver, Gold, Platinum)
 
 #### Bridge Tables (3)
 
@@ -154,8 +155,9 @@ For detailed documentation of each phase, see the individual phase files in this
 | 7 | Execution Workflows | ✅ Complete | [phase7_workflows.md](phase7_workflows.md) |
 | 8 | Audience Analytics | ✅ Complete | [phase8_audience_analytics.md](phase8_audience_analytics.md) |
 | 9 | Account Dimension | ✅ Complete | [phase9_account_dimension.md](phase9_account_dimension.md) |
+| 10 | PostgreSQL Support | ✅ Complete | [phase10_postgres.md](phase10_postgres.md) |
 
-**Completion:** 9/9 Phases (100%)
+**Completion:** 10/10 Phases (100%)
 
 ---
 
@@ -297,6 +299,10 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 | Data Generators | ✅ | `src/data_generators/` |
 | Data Loaders | ✅ | `src/data_loaders/` |
 | Execution Workflows | ✅ | `src/workflows/` |
+| PostgreSQL Connector | ✅ | `src/connectors/postgres_connector.py` |
+| PostgreSQL Loader | ✅ | `src/data_loaders/postgres_loader.py` |
+| PG DDL Adapter | ✅ | `src/sql_generator/pg_ddl_adapter.py` |
+| Connector/Loader Factories | ✅ | `src/connectors/factory.py`, `src/data_loaders/factory.py` |
 
 ---
 

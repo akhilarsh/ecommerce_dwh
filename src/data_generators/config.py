@@ -339,7 +339,7 @@ def load_config(config_path: Optional[str] = None) -> DataGenConfig:
     
     Args:
         config_path: Optional path to YAML config file.
-                    Defaults to src/data_generators/datagen_config.yaml
+                    Defaults to datagen_config.yaml in project root
     
     Returns:
         DataGenConfig populated from YAML with env vars substituted
@@ -351,7 +351,7 @@ def load_config(config_path: Optional[str] = None) -> DataGenConfig:
     
     # Determine config path
     if config_path is None:
-        yaml_path = Path(__file__).parent / "datagen_config.yaml"
+        yaml_path = Path(__file__).resolve().parent.parent.parent / "datagen_config.yaml"
     else:
         yaml_path = Path(config_path)
     

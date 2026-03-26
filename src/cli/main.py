@@ -12,10 +12,11 @@ Usage:
     dwh create-and-load          # Full deployment with data
 
 Supported DWH platforms (shorthand / full name):
-    sf / snowflake  - Snowflake Data Cloud
-    bq / bigquery   - Google BigQuery (placeholder)
-    rs / redshift   - Amazon Redshift (placeholder)
-    db / databricks - Databricks (placeholder)
+    sf / snowflake       - Snowflake Data Cloud
+    pg / postgres        - PostgreSQL
+    bq / bigquery        - Google BigQuery (placeholder)
+    rs / redshift        - Amazon Redshift (placeholder)
+    db / databricks      - Databricks (placeholder)
 
 Configuration priority:
     1. Environment variable (DWH_PLATFORM)
@@ -23,6 +24,7 @@ Configuration priority:
     3. Global config (~/.dwh/config.yaml)
 """
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -136,14 +138,18 @@ def test_connection(ctx: click.Context, timeout: int):
 @click.option("--output-dir", "-o", default="outputs/generated_sql", help="Output directory for SQL files")
 @click.option("--include-drops", is_flag=True, help="Include DROP TABLE statements")
 @click.option("--table", "-t", default=None, help="Generate SQL for a specific table only (e.g., dim_customers)")
+@click.option("--wh", default=None, help="Generate SQL for a specific platform (sf, pg). Default: active DWH_PLATFORM")
+@click.option("--all", "all_platforms", is_flag=True, help="Generate SQL for all supported platforms (side-by-side)")
 @click.pass_context
-def generate_sql(ctx: click.Context, output_dir: str, include_drops: bool, table: Optional[str]):
+def generate_sql(ctx: click.Context, output_dir: str, include_drops: bool, table: Optional[str], wh: Optional[str], all_platforms: bool):
     """Generate E-Commerce Data Warehouse DDL/DML SQL files."""
     from src.cli.commands.generate_sql import generate_sql_command
     generate_sql_command(
         output_dir=output_dir,
         include_drops=include_drops,
         table_name=table,
+        platform=wh,
+        all_platforms=all_platforms,
         verbose=ctx.obj.get("verbose", False)
     )
 
@@ -357,19 +363,20 @@ def generate_promotion(
 
 @cli.command("cache-keys")
 @click.option("--output", "-o", default=None, help="Output path (default from DATAGEN_KEYS_CACHE env)")
-@click.option("--schema", "-s", default="ECOMMERCE_DWH", help="Schema name in Snowflake")
+@click.option("--schema", "-s", default=None, help="Schema name (default: SNOWFLAKE_SCHEMA env or ECOMMERCE_DWH)")
 @click.pass_context
 def cache_keys(
     ctx: click.Context,
     output: Optional[str],
-    schema: str
+    schema: Optional[str]
 ):
     """Cache existing surrogate keys from Snowflake for incremental generation."""
     dwh = require_dwh_platform(ctx)
     from src.cli.commands.generate_data import cache_keys_command
+    resolved_schema = schema or os.getenv("SNOWFLAKE_SCHEMA", "ECOMMERCE_DWH")
     success = cache_keys_command(
         output_file=output,
-        schema=schema,
+        schema=resolved_schema,
         verbose=ctx.obj.get("verbose", False)
     )
     sys.exit(0 if success else 1)

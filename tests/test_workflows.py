@@ -150,22 +150,17 @@ class TestTableSetupWorkflow:
         assert result.details.get("dry_run") is True
         assert "tables_to_create" in result.details
     
-    @patch("src.workflows.table_setup_workflow.SnowflakeConnector")
-    def test_connection_failure_handling(self, mock_connector_class):
+    @patch("src.workflows.table_setup_workflow.get_connector")
+    @patch("src.workflows.table_setup_workflow.get_dwh_platform", return_value="sf")
+    def test_connection_failure_handling(self, mock_platform, mock_get_connector):
         """Workflow handles connection failures gracefully."""
-        mock_connector = MagicMock()
-        mock_connector.__enter__ = MagicMock(return_value=mock_connector)
-        mock_connector.__exit__ = MagicMock(return_value=False)
-        mock_connector_class.return_value = mock_connector
-        
-        # Simulate connection failure
-        mock_connector_class.side_effect = Exception("Connection refused")
-        
+        mock_get_connector.side_effect = Exception("Connection refused")
+
         config = TableSetupConfig()
         workflow = TableSetupWorkflow()
-        
+
         result = workflow.run(config)
-        
+
         assert result.success is False
         assert result.error is not None
     
@@ -213,10 +208,11 @@ class TestTableCreatorNewTablesTracking:
     def test_stats_has_new_tables_list(self):
         """TableCreator stats includes new_tables_created list."""
         from src.table_manager.create_tables import TableCreator
-        
+
         mock_connector = MagicMock()
+        mock_connector.PLATFORM = "snowflake"
         creator = TableCreator(mock_connector)
-        
+
         assert "new_tables_created" in creator.stats
         assert isinstance(creator.stats["new_tables_created"], list)
         assert len(creator.stats["new_tables_created"]) == 0

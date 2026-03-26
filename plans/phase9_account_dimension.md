@@ -86,7 +86,7 @@ flowchart LR
 - [x] `src/sql_generator/schema_manager.py` -- Registered both new tables
 - [x] `src/data_generators/relationships.py` -- Added FK tuples and load order entries
 - [x] `src/data_generators/config.py` -- Added `accounts` to VolumesConfig and parser
-- [x] `src/data_generators/datagen_config.yaml` -- Added `accounts: 200` default
+- [x] `datagen_config.yaml` (project root) -- Added `accounts: 200` default
 - [x] `src/data_generators/helpers/sales_helper.py` -- Wired account + bridge generation
 - [x] `src/data_generators/entities/dim_customers.py` -- Accepts and assigns `account_keys`
 - [x] `plans/PLAN.md`, `CLAUDE.md`, `REFERENCE.md`, `SKILL.md` -- Updated to 20 tables

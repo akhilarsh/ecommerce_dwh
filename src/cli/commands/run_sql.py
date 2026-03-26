@@ -7,7 +7,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-from src.connectors.snowflake_connector import SnowflakeConnector
+from src.connectors import get_connector
+from src.cli.config import get_dwh_platform
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -55,7 +56,8 @@ def run_sql_command(
     console.print(f"[bold]Running {path.name}[/bold] ({len(statements)} statement{'s' if len(statements) != 1 else ''})\n")
     
     try:
-        with SnowflakeConnector() as connector:
+        platform = get_dwh_platform()
+        with get_connector(platform) as connector:
             for i, stmt in enumerate(statements, 1):
                 if verbose:
                     console.print(Panel(stmt, title=f"Statement {i}/{len(statements)}", border_style="dim"))

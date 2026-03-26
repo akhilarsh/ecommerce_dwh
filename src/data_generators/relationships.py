@@ -26,6 +26,7 @@ class ReferentialIntegrityHandler:
         # Dimension FKs
         ("dim_customers", "segment_key", "dim_customer_segments", "segment_key"),
         ("dim_customers", "account_key", "dim_accounts", "account_key"),
+        ("dim_customers", "loyalty_tier_key", "dim_loyalty_tiers", "tier_key"),
         ("dim_products", "category_key", "dim_product_categories", "category_key"),
         ("dim_employees", "store_key", "dim_stores", "store_key"),
         
@@ -204,6 +205,7 @@ class ReferentialIntegrityHandler:
             "dim_payment_methods",
             "dim_shipping_methods",
             "dim_customer_segments",
+            "dim_loyalty_tiers",
             "dim_product_categories",
             "dim_promotions",
             "dim_accounts",

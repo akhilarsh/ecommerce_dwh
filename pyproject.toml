@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ecommerce_dwh"
 version = "1.0.0"
-description = "Programmatic Snowflake data warehouse setup for e-commerce analytics"
+description = "Programmatic data warehouse setup for e-commerce analytics (Snowflake, PostgreSQL)"
 requires-python = ">=3.10"
 
 dependencies = [
@@ -25,6 +25,9 @@ dependencies = [
 dwh = "cli.main:cli"
 
 [project.optional-dependencies]
+pg = [
+    "psycopg2-binary>=2.9.9",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",

@@ -213,7 +213,7 @@ def create_and_load_command(
     # Step 3: Load data
     if drop_existing:
         # Fresh deployment: load all tables
-        console.print("\n[bold cyan]Step 3/3: Loading data into Snowflake...[/bold cyan]\n")
+        console.print("\n[bold cyan]Step 3/3: Loading data into warehouse...[/bold cyan]\n")
         
         load_success = load_data_command(
             mode="initial",
@@ -357,7 +357,7 @@ def generate_and_load_command(
         return False
     
     # Step 2: Load the generated data
-    console.print("\n[bold cyan]Step 2/2: Loading data into Snowflake...[/bold cyan]\n")
+    console.print("\n[bold cyan]Step 2/2: Loading data into warehouse...[/bold cyan]\n")
     
     # The generated data is in a date-ranged folder - load_data will auto-detect the latest
     load_success = load_data_command(

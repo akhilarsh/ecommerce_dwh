@@ -12,6 +12,7 @@ from typing import Dict, Optional, Type
 
 from src.connectors.base_connector import BaseConnector
 from src.connectors.snowflake_connector import SnowflakeConnector
+from src.connectors.postgres_connector import PostgresConnector
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,6 +23,11 @@ DWH_REGISTRY: Dict[str, Type[BaseConnector]] = {
     # Snowflake
     "sf": SnowflakeConnector,
     "snowflake": SnowflakeConnector,
+    
+    # PostgreSQL
+    "pg": PostgresConnector,
+    "postgres": PostgresConnector,
+    "postgresql": PostgresConnector,
     
     # BigQuery (placeholder - implement BigQueryConnector)
     # "bq": BigQueryConnector,
@@ -43,6 +49,9 @@ DEFAULT_DWH = "snowflake"
 DWH_DISPLAY_NAMES: Dict[str, str] = {
     "sf": "Snowflake",
     "snowflake": "Snowflake",
+    "pg": "PostgreSQL",
+    "postgres": "PostgreSQL",
+    "postgresql": "PostgreSQL",
     "bq": "BigQuery",
     "bigquery": "BigQuery",
     "rs": "Redshift",

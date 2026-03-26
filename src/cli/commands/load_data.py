@@ -165,13 +165,13 @@ def load_data_command(
     Returns:
         True if successful, False otherwise
     """
-    from src.connectors.snowflake_connector import SnowflakeConnector
+    from src.connectors import get_connector
     from src.data_loaders import (
         DataLoadOrchestrator,
         LoaderConfig,
         LoadState,
-        SnowflakeLoader,
     )
+    from src.data_loaders.factory import get_loader
     
     # Resolve input directory from mode or explicit override
     resolved_input_dir = _resolve_input_dir(input_dir, mode)
@@ -193,11 +193,13 @@ def load_data_command(
             resume = False  # No matching state, start fresh
     
     # Display header
+    from src.connectors import get_dwh_display_name
+    platform_display = get_dwh_display_name(platform)
     mode_display = mode.capitalize()
     if table_name:
         console.print(f"\n[bold blue]Loading Data ({mode_display}): {table_name}[/bold blue]\n")
     else:
-        console.print(f"\n[bold blue]Loading {mode_display} Data into Snowflake{resume_info}[/bold blue]\n")
+        console.print(f"\n[bold blue]Loading {mode_display} Data into {platform_display}{resume_info}[/bold blue]\n")
     
     # Check input directory
     input_path = Path(resolved_input_dir)
@@ -275,18 +277,11 @@ def load_data_command(
             TaskProgressColumn(),
             console=console
         ) as progress:
-            task = progress.add_task("Connecting to Snowflake...", total=len(tables_to_load))
+            task = progress.add_task(f"Connecting to {platform_display}...", total=len(tables_to_load))
             
-            with SnowflakeConnector() as connector:
+            with get_connector(platform) as connector:
                 progress.update(task, description="Connected. Initializing loader...")
-                
-                # Create platform-specific loader
-                if platform.lower() == "snowflake":
-                    loader = SnowflakeLoader(connector, loader_config)
-                else:
-                    console.print(f"[red]✗ Platform '{platform}' not yet supported[/red]")
-                    console.print("[dim]Currently supported: snowflake[/dim]")
-                    return False
+                loader = get_loader(connector, loader_config)
                 
                 # Create orchestrator
                 orchestrator = DataLoadOrchestrator(loader, loader_config)

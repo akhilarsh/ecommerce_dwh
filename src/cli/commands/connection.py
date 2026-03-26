@@ -63,6 +63,8 @@ def test_connection_command(
                 display_fields = [
                     ("account", "Account"),
                     ("region", "Region"),
+                    ("host", "Host"),
+                    ("port", "Port"),
                     ("project", "Project"),  # BigQuery
                     ("cluster", "Cluster"),  # Redshift/Databricks
                     ("user", "User"),

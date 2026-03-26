@@ -20,6 +20,7 @@ from src.models.dimension_tables.dim_channels import DimChannels
 from src.models.dimension_tables.dim_payment_methods import DimPaymentMethods
 from src.models.dimension_tables.dim_shipping_methods import DimShippingMethods
 from src.models.dimension_tables.dim_customer_segments import DimCustomerSegments
+from src.models.dimension_tables.dim_loyalty_tiers import DimLoyaltyTiers
 from src.models.dimension_tables.dim_product_categories import DimProductCategories
 from src.models.dimension_tables.dim_promotions import DimPromotions
 from src.models.dimension_tables.dim_accounts import DimAccounts
@@ -66,6 +67,7 @@ class SchemaManager:
                 DimPaymentMethods(),
                 DimShippingMethods(),
                 DimCustomerSegments(),
+                DimLoyaltyTiers(),
                 DimProductCategories(),
                 DimPromotions(),
                 DimAccounts(),
@@ -181,39 +183,90 @@ class SchemaManager:
             "foreign_keys": self.get_foreign_key_scripts()
         }
     
-    def save_all_scripts(self, output_dir: str = "outputs/generated_sql"):
+    def save_all_scripts(
+        self,
+        output_dir: str = "outputs/generated_sql",
+        platform: str = "snowflake",
+    ):
         """
-        Save all SQL scripts to files.
-        
+        Save all SQL scripts to platform-specific subdirectory.
+
         Args:
-            output_dir: Output directory for SQL files
+            output_dir: Base output directory for SQL files
+            platform: Target platform ('snowflake' or 'pg')
         """
         import os
-        
-        # Create output directory
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Generate and save CREATE TABLE scripts
+
+        if platform in ("pg", "postgres", "postgresql"):
+            return self._save_pg_scripts(output_dir)
+
+        # Snowflake (default)
+        sf_dir = os.path.join(output_dir, "snowflake")
+        os.makedirs(sf_dir, exist_ok=True)
+
         create_scripts = self.get_create_table_scripts()
-        create_file = os.path.join(output_dir, "01_create_tables.sql")
+        create_file = os.path.join(sf_dir, "01_create_tables.sql")
         self.ddl_generator.save_to_file(create_scripts, create_file)
-        
-        # Generate and save FK scripts
+
         fk_scripts = self.get_foreign_key_scripts()
-        fk_file = os.path.join(output_dir, "02_foreign_keys.sql")
+        fk_file = os.path.join(sf_dir, "02_foreign_keys.sql")
         self.constraint_generator.save_to_file(fk_scripts, fk_file)
-        
-        # Generate and save DROP TABLE scripts
+
         drop_scripts = self.get_drop_table_scripts()
-        drop_file = os.path.join(output_dir, "00_drop_tables.sql")
+        drop_file = os.path.join(sf_dir, "00_drop_tables.sql")
         self.ddl_generator.save_to_file(drop_scripts, drop_file)
-        
-        logger.info(f"All SQL scripts saved to {output_dir}/")
-        
+
+        logger.info(f"Snowflake SQL scripts saved to {sf_dir}/")
+
         return {
             "drop_tables": drop_file,
             "create_tables": create_file,
-            "foreign_keys": fk_file
+            "foreign_keys": fk_file,
+        }
+
+    def _save_pg_scripts(self, output_dir: str):
+        """Save PostgreSQL DDL scripts."""
+        import os
+        from src.sql_generator.pg_ddl_adapter import (
+            generate_pg_create_table,
+            generate_pg_drop_table,
+            generate_pg_foreign_keys,
+        )
+
+        pg_schema = os.getenv("POSTGRES_SCHEMA", "ecommerce_dwh")
+        pg_dir = os.path.join(output_dir, "pg")
+        os.makedirs(pg_dir, exist_ok=True)
+
+        create_stmts = []
+        comment_stmts = []
+        for table in self.all_tables:
+            create_sql, comments = generate_pg_create_table(table, pg_schema)
+            create_stmts.append(create_sql)
+            comment_stmts.extend(comments)
+
+        create_file = os.path.join(pg_dir, "01_create_tables.sql")
+        Path(create_file).write_text("\n\n".join(create_stmts))
+
+        fk_stmts = []
+        for table in self.all_tables:
+            fk_stmts.extend(generate_pg_foreign_keys(table, pg_schema))
+        fk_file = os.path.join(pg_dir, "02_foreign_keys.sql")
+        Path(fk_file).write_text("\n\n".join(fk_stmts) if fk_stmts else "-- No foreign keys")
+
+        drop_stmts = [generate_pg_drop_table(t, pg_schema) for t in reversed(self.all_tables)]
+        drop_file = os.path.join(pg_dir, "00_drop_tables.sql")
+        Path(drop_file).write_text("\n\n".join(drop_stmts))
+
+        if comment_stmts:
+            comments_file = os.path.join(pg_dir, "03_comments.sql")
+            Path(comments_file).write_text("\n".join(comment_stmts))
+
+        logger.info(f"PostgreSQL SQL scripts saved to {pg_dir}/")
+
+        return {
+            "drop_tables": drop_file,
+            "create_tables": create_file,
+            "foreign_keys": fk_file,
         }
     
     def get_table_summary(self) -> Dict[str, int]:

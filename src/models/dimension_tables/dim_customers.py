@@ -143,10 +143,10 @@ class DimCustomers(BaseTable):
                 comment="Member of loyalty program"
             ),
             Column(
-                "loyalty_tier",
-                "VARCHAR",
-                length=50,
-                comment="Bronze, Silver, Gold, Platinum"
+                "loyalty_tier_key",
+                "NUMBER",
+                precision=38,
+                comment="FK to dim_loyalty_tiers (NULL for non-members)"
             ),
             Column(
                 "loyalty_points_balance",
@@ -210,5 +210,10 @@ class DimCustomers(BaseTable):
             column="account_key",
             reference_table="dim_accounts",
             reference_column="account_key"
+        ),
+        ForeignKey(
+            column="loyalty_tier_key",
+            reference_table="dim_loyalty_tiers",
+            reference_column="tier_key"
         ),
     ]

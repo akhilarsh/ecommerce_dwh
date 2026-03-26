@@ -1,3 +1,6 @@
+DROP VIEW IF EXISTS ecommerce_db.e_mart.v_purchase_full;
+DROP VIEW IF EXISTS ecommerce_db.e_mart.v_purchase;
+
 DROP TABLE IF EXISTS ecommerce_db.e_mart.bridge_product_promotions;
 
 DROP TABLE IF EXISTS ecommerce_db.e_mart.bridge_order_items;

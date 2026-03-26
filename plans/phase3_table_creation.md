@@ -9,7 +9,7 @@ deliverables:
     content: TableCreator class (src/table_manager/create_tables.py)
     status: completed
   - id: create-tables
-    content: Create all 20 tables in dependency order
+    content: Create all 21 tables in dependency order
     status: completed
   - id: apply-pk
     content: Primary keys (included in CREATE TABLE)
@@ -32,7 +32,7 @@ deliverables:
 
 ## Objective
 
-Create database schema and all 20 tables in Snowflake with proper constraints.
+Create database schema and all 21 tables in Snowflake with proper constraints.
 
 ## Key Files
 
@@ -71,32 +71,33 @@ Tables are created in dependency order to ensure FK references are valid.
 4. dim_payment_methods
 5. dim_shipping_methods
 6. dim_customer_segments
-7. dim_product_categories
-8. dim_promotions
-9. dim_accounts
+7. dim_loyalty_tiers
+8. dim_product_categories
+9. dim_promotions
+10. dim_accounts
 
 ### 2. Master Dimensions
 
-10. dim_stores
-11. dim_products (depends on dim_product_categories)
-12. dim_customers (depends on dim_customer_segments, dim_accounts)
+11. dim_stores
+12. dim_products (depends on dim_product_categories)
+13. dim_customers (depends on dim_customer_segments, dim_accounts, dim_loyalty_tiers)
 
 ### 3. Dependent Dimensions
 
-13. dim_employees (depends on dim_stores)
+14. dim_employees (depends on dim_stores)
 
 ### 4. Fact Tables
 
-14. fact_sales (depends on multiple dimensions)
-15. fact_inventory_snapshots
-16. fact_customer_interactions
-17. fact_loyalty_points
+15. fact_sales (depends on multiple dimensions)
+16. fact_inventory_snapshots
+17. fact_customer_interactions
+18. fact_loyalty_points
 
 ### 5. Bridge Tables
 
-18. bridge_order_items
-19. bridge_product_promotions
-20. bridge_account_customers (depends on dim_accounts, dim_customers)
+19. bridge_order_items
+20. bridge_product_promotions
+21. bridge_account_customers (depends on dim_accounts, dim_customers)
 
 ## CLI Usage
 

@@ -30,7 +30,7 @@ deliverables:
     content: InventoryHelper for fact_inventory_snapshots
     status: complete
   - id: entity-generators
-    content: 20 entity generators in src/data_generators/entities/
+    content: 21 entity generators in src/data_generators/entities/
     status: complete
   - id: keys-loader
     content: ExistingKeysLoader for incremental key management
@@ -89,18 +89,19 @@ Config-driven data generation with a single `DataGenerator` that delegates to do
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                           Entity Generators                                  │
-│         (DimCustomersGenerator, FactSalesGenerator, etc. - 20 total)        │
+│         (DimCustomersGenerator, FactSalesGenerator, etc. - 21 total)        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Directory Structure
 
 ```
+project_root/
+├── datagen_config.yaml         # THE source of truth (project root)
 src/data_generators/
 ├── __init__.py                 # Public API exports
 ├── generator.py                # DataGenerator - main entry point
 ├── config.py                   # DataGenConfig dataclass + load_config()
-├── datagen_config.yaml         # THE source of truth
 ├── relationships.py            # ReferentialIntegrityHandler
 │
 ├── helpers/                    # Domain helpers
@@ -112,7 +113,7 @@ src/data_generators/
 │   ├── sales_helper.py         # dim_customers, fact_sales, fact_interactions, fact_loyalty
 │   └── inventory_helper.py     # fact_inventory_snapshots
 │
-├── entities/                   # Individual entity generators (20 files)
+├── entities/                   # Individual entity generators (21 files)
 │   ├── __init__.py
 │   ├── base_entity.py          # BaseEntityGenerator
 │   ├── dim_dates.py
@@ -121,6 +122,7 @@ src/data_generators/
 │   ├── dim_payment_methods.py
 │   ├── dim_shipping_methods.py
 │   ├── dim_customer_segments.py
+│   ├── dim_loyalty_tiers.py
 │   ├── dim_product_categories.py
 │   ├── dim_promotions.py
 │   ├── dim_accounts.py
@@ -298,6 +300,7 @@ Main entry point that delegates to domain helpers:
 
 | Helper | Entities Managed |
 |--------|------------------|
+| DataGenerator (direct) | dim_channels, dim_payment_methods, dim_shipping_methods, dim_customer_segments, dim_loyalty_tiers |
 | CalendarHelper | dim_dates, dim_time |
 | CatalogHelper | dim_product_categories, dim_products, dim_promotions, bridge_product_promotions |
 | StoreHelper | dim_stores, dim_employees |
@@ -316,16 +319,19 @@ Main entry point that delegates to domain helpers:
 ### Initial Load
 
 ```
-1. CalendarHelper.generate()     → dim_dates, dim_time
-2. CatalogHelper.generate()      → dim_categories, dim_products, dim_promotions
-3. StoreHelper.generate()        → dim_stores, dim_employees
-4. SalesHelper.generate()        → dim_accounts, dim_customers, bridge_account_customers,
-                                   fact_sales, bridge_order_items, 
+1. DataGenerator.generate_static_dimensions() → dim_channels, dim_payment_methods,
+                                               dim_shipping_methods, dim_customer_segments,
+                                               dim_loyalty_tiers
+2. CalendarHelper.generate()     → dim_dates, dim_time
+3. CatalogHelper.generate()      → dim_categories, dim_products, dim_promotions
+4. StoreHelper.generate()        → dim_stores, dim_employees
+5. SalesHelper.generate()        → dim_accounts, dim_customers, bridge_account_customers,
+                                   fact_sales, bridge_order_items,
                                    fact_interactions, fact_loyalty
-5. InventoryHelper.generate()    → fact_inventory_snapshots
-6. Validate referential integrity
-7. Save to CSV
-8. Save keys to cache
+6. InventoryHelper.generate()    → fact_inventory_snapshots
+7. Validate referential integrity
+8. Save to CSV
+9. Save keys to cache
 ```
 
 ### Incremental

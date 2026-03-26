@@ -35,12 +35,22 @@ class DimCustomersGenerator(BaseEntityGenerator):
         ("Argentina", "+54", 0.02),
     ]
     
+    # Tier weights for point generation: (weight, min_pts, max_pts)
+    # Reflects realistic loyalty distribution skewed toward lower tiers
+    _DEFAULT_TIER_DISTRIBUTION = [
+        (0.40, 0, 999),       # Bronze
+        (0.30, 1000, 3999),   # Silver
+        (0.20, 4000, 9999),   # Gold
+        (0.10, 10000, 50000), # Platinum
+    ]
+
     def generate(
         self,
         count: int = 1000,
         start_key: int = 1,
         segment_keys: List[int] = None,
         account_keys: List[int] = None,
+        loyalty_tier_data: Optional[List[Dict[str, Any]]] = None,
         registration_date: Optional[date] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
@@ -55,6 +65,8 @@ class DimCustomersGenerator(BaseEntityGenerator):
             start_key: Starting surrogate key value
             segment_keys: List of valid segment keys
             account_keys: List of valid account keys (primary account assignment)
+            loyalty_tier_data: List of dicts with tier_key, min_points, max_points.
+                               If None, uses default tier thresholds with key positions 1–4.
             registration_date: Specific registration date (single date, for backwards compat)
             start_date: Start of date range for registration dates
             end_date: End of date range for registration dates
@@ -69,12 +81,39 @@ class DimCustomersGenerator(BaseEntityGenerator):
                 data=self._create_dataframe([]),
                 surrogate_keys=[]
             )
-        
+
         self.logger.info(f"Generating {count} customers")
-        
+
         # Default segment keys if not provided
         if not segment_keys:
             segment_keys = list(range(1, 8))  # 7 standard segments
+
+        # Build tier lookup: list of (tier_key, min_points, max_points) sorted by min_points
+        if loyalty_tier_data:
+            tier_lookup = sorted(
+                [(t["tier_key"], t["min_points"], t.get("max_points")) for t in loyalty_tier_data],
+                key=lambda x: x[1]
+            )
+            tier_distribution = [
+                (w, mn, mx if mx is not None else 50000)
+                for (_, mn, mx), (w, _, _) in zip(tier_lookup, self._DEFAULT_TIER_DISTRIBUTION)
+            ]
+        else:
+            # Fallback: derive keys from position (tier_key = 1..4 for Bronze..Platinum)
+            tier_lookup = [(i + 1, mn, mx) for i, (_, mn, mx) in enumerate(self._DEFAULT_TIER_DISTRIBUTION)]
+            tier_distribution = self._DEFAULT_TIER_DISTRIBUTION
+
+        tier_weights = [w for w, _, _ in tier_distribution]
+        tier_ranges = [(mn, mx) for _, mn, mx in tier_distribution]
+
+        def _points_to_tier_key(points: int) -> int:
+            for tier_key, min_pts, max_pts in tier_lookup:
+                if max_pts is None:
+                    if points >= min_pts:
+                        return tier_key
+                elif min_pts <= points <= max_pts:
+                    return tier_key
+            return tier_lookup[-1][0]  # fallback to highest tier
         
         # Date setup
         eff_date = effective_date or self.config.dates.start
@@ -120,12 +159,14 @@ class DimCustomersGenerator(BaseEntityGenerator):
             
             # Loyalty program - 60% are members
             is_loyalty_member = random.random() < 0.6
-            loyalty_tier = None
+            loyalty_tier_key = None
             loyalty_points = 0
-            
+
             if is_loyalty_member:
-                loyalty_tier = random.choice(["Bronze", "Silver", "Gold", "Platinum"])
-                loyalty_points = random.randint(0, 50000)
+                # Pick a tier band by weight, then generate points within that band
+                chosen_range = random.choices(tier_ranges, weights=tier_weights)[0]
+                loyalty_points = random.randint(chosen_range[0], chosen_range[1])
+                loyalty_tier_key = _points_to_tier_key(loyalty_points)
             
             # Assign segment - weighted toward New/Regular for fresh data
             segment_weights = [0.05, 0.15, 0.30, 0.30, 0.10, 0.07, 0.03]
@@ -163,7 +204,7 @@ class DimCustomersGenerator(BaseEntityGenerator):
                 "account_key": account_key,
                 "preferred_channel": random.choice(self.PREFERRED_CHANNELS),
                 "loyalty_program_member": is_loyalty_member,
-                "loyalty_tier": loyalty_tier,
+                "loyalty_tier_key": loyalty_tier_key,
                 "loyalty_points_balance": loyalty_points,
                 "lifetime_value": Decimal("0.00"),  # Updated by ETL
                 "is_active": True,

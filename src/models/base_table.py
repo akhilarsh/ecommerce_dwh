@@ -168,6 +168,12 @@ class BaseTable(ABC):
             schema = os.getenv("DATABRICKS_SCHEMA")
             if not database or not schema:
                 raise ValueError("DATABRICKS_CATALOG and DATABRICKS_SCHEMA are required")
+        elif platform in ("pg", "postgres", "postgresql"):
+            schema = os.getenv("POSTGRES_SCHEMA")
+            if not schema:
+                raise ValueError("POSTGRES_SCHEMA is required")
+            # PG uses 2-part names (schema.table), not 3-part
+            return schema.lower()
         else:
             raise ValueError(f"Unsupported DWH platform: {platform}")
         
