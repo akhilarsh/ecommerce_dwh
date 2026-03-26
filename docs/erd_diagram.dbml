@@ -92,6 +92,18 @@ Table dim_customer_segments {
   updated_at datetime
 }
 
+Table dim_loyalty_tiers {
+  tier_key int [pk]
+  tier_id varchar(50)
+  tier_name varchar(50)
+  min_points int
+  max_points int
+  description varchar(500)
+  is_active boolean
+  created_at datetime
+  updated_at datetime
+}
+
 Table dim_product_categories {
   category_key int [pk]
   category_id varchar(50)
@@ -213,7 +225,7 @@ Table dim_customers {
   account_key int
   preferred_channel varchar(50)
   loyalty_program_member boolean
-  loyalty_tier varchar(50)
+  loyalty_tier_key int
   loyalty_points_balance int
   lifetime_value decimal
   is_active boolean
@@ -400,6 +412,7 @@ Ref: dim_product_categories.parent_category_key > dim_product_categories.categor
 Ref: dim_products.category_key > dim_product_categories.category_key
 Ref: dim_customers.segment_key > dim_customer_segments.segment_key
 Ref: dim_customers.account_key > dim_accounts.account_key
+Ref: dim_customers.loyalty_tier_key > dim_loyalty_tiers.tier_key
 Ref: dim_employees.store_key > dim_stores.store_key
 
 // fact_sales

@@ -375,7 +375,7 @@ erDiagram
         VARCHAR first_name
         VARCHAR last_name
         VARCHAR email
-        VARCHAR loyalty_tier_name
+        VARCHAR loyalty_tier
         DATE order_date
         NUMBER line_quantity
         NUMBER unit_price
@@ -400,7 +400,7 @@ erDiagram
         VARCHAR customer_id
         VARCHAR first_name
         VARCHAR last_name
-        VARCHAR loyalty_tier_name
+        VARCHAR loyalty_tier
         VARCHAR product_id
         VARCHAR sku
         VARCHAR product_name

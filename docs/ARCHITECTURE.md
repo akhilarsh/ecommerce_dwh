@@ -187,7 +187,7 @@ class DimCustomers:
     email
     address
     segment_key
-    loyalty_tier
+    loyalty_tier_key
     
     # SCD Type 2 tracking columns
     effective_date     # When this version became active

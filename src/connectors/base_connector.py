@@ -5,7 +5,7 @@ All DWH connectors must implement this interface.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 class BaseConnector(ABC):
@@ -33,7 +33,7 @@ class BaseConnector(ABC):
     def execute_query(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None
+        params: Optional[Union[tuple, Dict[str, Any]]] = None
     ) -> List[tuple]:
         """
         Execute SQL query and return results as tuples.
@@ -51,7 +51,7 @@ class BaseConnector(ABC):
     def execute_dict(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None
+        params: Optional[Union[tuple, Dict[str, Any]]] = None
     ) -> List[Dict[str, Any]]:
         """
         Execute SQL query and return results as dictionaries.

@@ -155,7 +155,7 @@ For detailed documentation of each phase, see the individual phase files in this
 | 7 | Execution Workflows | ✅ Complete | [phase7_workflows.md](phase7_workflows.md) |
 | 8 | Audience Analytics | ✅ Complete | [phase8_audience_analytics.md](phase8_audience_analytics.md) |
 | 9 | Account Dimension | ✅ Complete | [phase9_account_dimension.md](phase9_account_dimension.md) |
-| 10 | PostgreSQL Support | ✅ Complete | PG connector, loader, DDL adapter, CLI `--wh pg` |
+| 10 | PostgreSQL Support | ✅ Complete | [phase10_postgres.md](phase10_postgres.md) |
 
 **Completion:** 10/10 Phases (100%)
 
@@ -299,6 +299,10 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 | Data Generators | ✅ | `src/data_generators/` |
 | Data Loaders | ✅ | `src/data_loaders/` |
 | Execution Workflows | ✅ | `src/workflows/` |
+| PostgreSQL Connector | ✅ | `src/connectors/postgres_connector.py` |
+| PostgreSQL Loader | ✅ | `src/data_loaders/postgres_loader.py` |
+| PG DDL Adapter | ✅ | `src/sql_generator/pg_ddl_adapter.py` |
+| Connector/Loader Factories | ✅ | `src/connectors/factory.py`, `src/data_loaders/factory.py` |
 
 ---
 

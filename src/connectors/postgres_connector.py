@@ -7,7 +7,7 @@ Reads connection parameters from environment variables:
 """
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import psycopg2
 import psycopg2.extras
@@ -94,7 +94,7 @@ class PostgresConnector(BaseConnector):
     def execute_query(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[tuple, Dict[str, Any]]] = None,
     ) -> List[tuple]:
         if not self.cursor:
             raise RuntimeError("Not connected to PostgreSQL. Call connect() first.")
@@ -123,7 +123,7 @@ class PostgresConnector(BaseConnector):
     def execute_dict(
         self,
         query: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[Union[tuple, Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         if not self.connection:
             raise RuntimeError("Not connected to PostgreSQL")
