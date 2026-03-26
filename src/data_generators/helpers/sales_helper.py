@@ -473,28 +473,36 @@ class SalesHelper(BaseHelper):
         
         self.logger.info(f"Generating incremental data for {start} to {end}")
         
-        # Generate new accounts + customers (1:1 mapping)
+        # Generate new customers (many:1 to accounts - assign to existing accounts)
         new_customer_keys = []
         if incremental.new_customers > 0:
             num_new = incremental.new_customers
+            account_keys = list(self._get_dimension_keys("dim_accounts"))
 
-            # Generate matching accounts first
-            new_accounts = self._generate_accounts(count=num_new)
-            result.add_dimension(new_accounts)
-            self._update_keys("dim_accounts", new_accounts.surrogate_keys)
+            # Optionally generate new accounts for incremental
+            new_account_keys = []
+            new_accounts_count = incremental.new_accounts or 0
+            if new_accounts_count > 0:
+                new_accounts = self._generate_accounts(count=new_accounts_count)
+                result.add_dimension(new_accounts)
+                self._update_keys("dim_accounts", new_accounts.surrogate_keys)
+                new_account_keys = new_accounts.surrogate_keys
 
-            # Generate customers with only the new account keys (1:1)
+            # All available accounts (existing + new) — new customers assigned randomly (many:1)
+            pool = account_keys + new_account_keys
+            if not pool:
+                self.logger.warning("No account keys available; new customers will have account_key=NULL")
+
             customers = self._generate_customers(
                 count=num_new,
                 start_date=start,
                 end_date=end,
-                account_keys=new_accounts.surrogate_keys
+                account_keys=pool if pool else None
             )
             result.add_dimension(customers)
             self._update_keys("dim_customers", customers.surrogate_keys)
             new_customer_keys = customers.surrogate_keys
 
-            # Generate bridge rows for new customers
             bridge_ac = self._generate_account_customer_bridge(
                 customers_data=customers
             )

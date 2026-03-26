@@ -490,14 +490,13 @@ erDiagram
 | __dim_shipping_methods__ | `shipping_method_key` | None | Delivery options (Standard, Express, Same Day) with carriers. |
 | __dim_product_categories__ | `category_key` | None | Product hierarchy (category > subcategory). Self-referencing via `parent_category_key` for nested hierarchies. Parent to `dim_products`. |
 | __dim_customer_segments__ | `segment_key` | None | Customer classification groups (High Value, Regular, New) with LTV thresholds. Parent to `dim_customers`. |
-| __dim_loyalty_tiers__ | `tier_key` | None | Loyalty program tier definitions with point thresholds (Bronze 0–999, Silver 1,000–3,999, Gold 4,000–9,999, Platinum 10,000+). Parent to `dim_customers`. |
-| __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). Many customers per account (household, B2B). Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
+| __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). Many customers per account (many:1). Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
 
 ### Dimension Tables (With FK Dependencies) - 3 Tables
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
-| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts`, `loyalty_tier_key` → `dim_loyalty_tiers` | Each customer belongs to one segment and one account (many:one). `loyalty_tier_key` is NULL for non-members; derived from `loyalty_points_balance` against tier thresholds — not stored statically. SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
+| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts` | Each customer belongs to one segment and one account (many:1). SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
 | __dim_products__ | `product_key` | `category_key` → `dim_product_categories` | Each product belongs to one category. SCD Type 2 table - tracks price/attribute changes over time. Multiple rows per product_id possible. |
 | __dim_employees__ | `employee_key` | `store_key` → `dim_stores` | Each employee works at one store. Links sales associates to physical locations. |
 
@@ -540,14 +539,7 @@ erDiagram
 | __bridge_product_promotions__ | `product_promotion_key` | `product_key` → `dim_products` (required) | __Resolves many-to-many__ between products and promotions. |
 | | | `promotion_key` → `dim_promotions` (required) | One promotion applies to many products; one product can have many promotions. Contains product-specific discount details. |
 | __bridge_account_customers__ | `account_customer_key` | `account_key` → `dim_accounts` (required) | __Maps account-customer relationships__ with roles. |
-| | | `customer_key` → `dim_customers` (required) | Many:one — many customers can share one account (household, B2B). Bridge stores role and temporal relationship metadata. |
-
-### Views - 2 Views
-
-| View | Type | Sources | Relationship |
-|------|------|---------|--------------|
-| __v_purchase__ | Slim | fact_sales, bridge_order_items, dim_customers, dim_loyalty_tiers, dim_dates, dim_time, dim_channels, dim_stores, dim_promotions, dim_payment_methods, dim_shipping_methods, dim_employees, fact_loyalty_points | One row per line item. Joins `dim_loyalty_tiers` to resolve `loyalty_tier_key` → `loyalty_tier_name`. Exposes `product_key` only; join to dim_products for product attributes. Many:one to dim_products. |
-| __v_purchase_full__ | Full | Same as v_purchase + dim_products, dim_product_categories | Same grain but denormalized: includes product_id, sku, product_name, brand, category_name, category_path, and `loyalty_tier_name` from dim_loyalty_tiers. |
+| | | `customer_key` → `dim_customers` (required) | Many:1 mapping — multiple customers can belong to one account. Bridge stores role and temporal relationship metadata. |
 
 ### FK Count Summary
 

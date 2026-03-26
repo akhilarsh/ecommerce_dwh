@@ -38,7 +38,7 @@ initial_load:
   shipping_methods: ${DATAGEN_SHIPPING_METHODS || 8}
   customer_segments: ${DATAGEN_CUSTOMER_SEGMENTS || 7}
   product_categories: ${DATAGEN_PRODUCT_CATEGORIES || 100}
-  accounts: ${DATAGEN_ACCOUNTS || 1000}
+  accounts: ${DATAGEN_ACCOUNTS || 200}
   
   # Fact counts
   # sales: Number of orders (each order has 1-5 line items in bridge_order_items)
@@ -77,6 +77,7 @@ incremental:
   
   # Volume counts (distributed across date range)
   new_customers: ${DATAGEN_NEW_CUSTOMERS || 25}
+  new_accounts: ${DATAGEN_NEW_ACCOUNTS || 1}
   new_orders: ${DATAGEN_NEW_ORDERS || 50}
   new_interactions: ${DATAGEN_NEW_INTERACTIONS || 50}
   new_loyalty_transactions: ${DATAGEN_NEW_LOYALTY || 50}
