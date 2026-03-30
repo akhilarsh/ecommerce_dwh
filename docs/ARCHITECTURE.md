@@ -10,7 +10,7 @@ This document provides deep technical details about the e-commerce data warehous
 
 ### High-Level Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                     Application Layer                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
@@ -65,7 +65,7 @@ The architecture follows Ralph Kimball's dimensional modeling methodology with a
 
 ### Detailed Table Relationships
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                          FACT_SALES (Central Hub)               │
 │─────────────────────────────────────────────────────────────────│
@@ -98,7 +98,8 @@ The architecture follows Ralph Kimball's dimensional modeling methodology with a
 ### Dimension Hierarchies
 
 #### Customer Hierarchy
-```
+
+```text
 dim_customers (SCD Type 2)
     ├── customer_key (PK, surrogate)
     ├── customer_id (business key)
@@ -120,7 +121,8 @@ bridge_account_customers
 ```
 
 #### Product Hierarchy
-```
+
+```text
 dim_products (SCD Type 2)
     ├── product_key (PK, surrogate)
     ├── product_id (business key)
@@ -134,7 +136,8 @@ dim_products (SCD Type 2)
 ```
 
 #### Date/Time Hierarchy
-```
+
+```text
 dim_dates (pre-populated)
     ├── date_key (PK) - format: YYYYMMDD
     ├── full_date
@@ -200,7 +203,8 @@ class DimCustomers:
 ```
 
 **Example:**
-```
+
+```text
 customer_key | customer_id | email           | segment_key | effective_date | end_date   | is_current
 -------------|-------------|-----------------|-------------|----------------|------------|------------
 1001         | CUST001     | old@email.com   | 2           | 2024-01-01     | 2024-06-30 | FALSE
@@ -368,7 +372,8 @@ class DimCustomersGenerator(BaseEntityGenerator):
 ```
 
 **Data Generation Flow:**
-```
+
+```text
 1. CalendarHelper.generate()     → dim_dates, dim_time
 2. CatalogHelper.generate()      → dim_categories, dim_products, dim_promotions
 3. StoreHelper.generate()        → dim_stores, dim_employees
@@ -447,7 +452,7 @@ with SnowflakeConnector(config) as conn:
 
 ### Environment-Based Configuration
 
-```
+```text
 .env (local, not in git)
     ├── SNOWFLAKE_ACCOUNT
     ├── SNOWFLAKE_USER
@@ -615,7 +620,7 @@ HAVING COUNT(*) > 1;  -- Should return 0 rows
 
 ### Deployment Pipeline
 
-```
+```text
 1. Development
    ├── Local Python environment
    ├── DWH dev account (Snowflake, etc.)
@@ -639,7 +644,7 @@ HAVING COUNT(*) > 1;  -- Should return 0 rows
 
 ### Version Control Strategy
 
-```
+```text
 - Schema versions tracked in Git
 - DDL changes versioned
 - Migration scripts for schema updates

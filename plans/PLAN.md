@@ -27,33 +27,35 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 
 #### Fact Tables (4)
 
-1. __fact_sales__ - Core sales transactions
-2. __fact_inventory_snapshots__ - Daily inventory levels per location
-3. __fact_customer_interactions__ - Customer touchpoints (web visits, store visits)
-4. __fact_loyalty_points__ - Loyalty program transactions
+1. **fact_sales** - Core sales transactions
+2. **fact_inventory_snapshots** - Daily inventory levels per location
+3. **fact_customer_interactions** - Customer touchpoints (web visits, store visits)
+4. **fact_loyalty_points** - Loyalty program transactions
 
-#### Dimension Tables (14)
+#### Dimension Tables (16)
 
-1. __dim_customers__ - Customer master data (SCD Type 2 for history tracking)
-2. __dim_products__ - Product catalog with attributes
-3. __dim_stores__ - Physical store locations
-4. __dim_channels__ - Sales channels (online, in-store, mobile app)
-5. __dim_dates__ - Date dimension for time-series analysis
-6. __dim_time__ - Time of day for intraday analysis
-7. __dim_promotions__ - Marketing campaigns and promotions
-8. __dim_payment_methods__ - Payment types
-9. __dim_shipping_methods__ - Fulfillment options
-10. __dim_product_categories__ - Product hierarchy (Category > Subcategory > Brand)
-11. __dim_customer_segments__ - Customer segmentation groups
-12. __dim_employees__ - Store/sales associates
-13. __dim_accounts__ - Customer accounts (individual, household, business, corporate)
-14. __dim_loyalty_tiers__ - Loyalty program tier definitions with point thresholds (Bronze, Silver, Gold, Platinum)
+1. **dim_customers** - Customer identity & demographics (SCD Type 2)
+2. **dim_customer_address** - Customer addresses (SCD Type 2)
+3. **dim_customer_loyalty** - Loyalty program metrics (SCD Type 2)
+4. **dim_products** - Product catalog with attributes
+5. **dim_stores** - Physical store locations
+6. **dim_channels** - Sales channels (online, in-store, mobile app)
+7. **dim_dates** - Date dimension for time-series analysis
+8. **dim_time** - Time of day for intraday analysis
+9. **dim_promotions** - Marketing campaigns and promotions
+10. **dim_payment_methods** - Payment types
+11. **dim_shipping_methods** - Fulfillment options
+12. **dim_product_categories** - Product hierarchy (Category > Subcategory > Brand)
+13. **dim_customer_segments** - Customer segmentation groups
+14. **dim_employees** - Store/sales associates
+15. **dim_accounts** - Customer accounts (individual, household, business, corporate)
+16. **dim_loyalty_tiers** - Loyalty program tier definitions with point thresholds (Bronze, Silver, Gold, Platinum)
 
 #### Bridge Tables (3)
 
-1. __bridge_order_items__ - Order line items linking sales to products
-2. __bridge_product_promotions__ - Product-promotion associations
-3. __bridge_account_customers__ - Account-customer relationships with roles
+1. **bridge_order_items** - Order line items linking sales to products
+2. **bridge_product_promotions** - Product-promotion associations
+3. **bridge_account_customers** - Account-customer relationships with roles
 
 ---
 
@@ -62,7 +64,7 @@ Since this is a Snowflake data warehouse for analytics (OLAP workloads), we're u
 See **[../docs/ERD.md](../docs/ERD.md)** for the complete ERD with:
 
 - Full Mermaid diagram (renders natively in GitHub/IDE)
-- All 20 tables with columns and types
+- All 23 tables with columns and types
 - All foreign key relationships
 - Real-world example: "A Customer's Shopping Journey"
 
@@ -210,8 +212,8 @@ dwh create-and-load              # Incremental (add new tables only)
 
 ### 3. Slowly Changing Dimensions (SCD)
 
-- __Type 2:__ dim_customers, dim_products (track history)
-- __Type 1:__ dim_stores, dim_channels (overwrite)
+- **Type 2:** dim_customers, dim_customer_address, dim_customer_loyalty, dim_products (track history)
+- **Type 1:** dim_stores, dim_channels (overwrite)
 
 ### 4. Snowflake Data Types
 
@@ -228,11 +230,11 @@ dwh create-and-load              # Incremental (add new tables only)
 -- Customer lifetime value by segment
 SELECT 
     cs.segment_name,
-    COUNT(DISTINCT c.customer_key) as customer_count,
+    COUNT(DISTINCT cp.customer_key) as customer_count,
     SUM(fs.net_amount) as total_revenue
 FROM fact_sales fs
-JOIN dim_customers c ON fs.customer_key = c.customer_key
-JOIN dim_customer_segments cs ON c.segment_key = cs.segment_key
+JOIN dim_customers cp ON fs.customer_key = cp.customer_key
+JOIN dim_customer_segments cs ON cp.segment_key = cs.segment_key
 GROUP BY cs.segment_name;
 ```
 
@@ -274,7 +276,7 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 
 ## Success Criteria
 
-- [x] All 20 tables created in Snowflake
+- [x] All 23 tables created in Snowflake
 - [x] Foreign key relationships enforced
 - [x] Test data loaded with integrity
 - [x] Sample queries execute correctly
@@ -292,11 +294,11 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 | Logger | ✅ | `src/utils/logger.py` |
 | Base Table | ✅ | `src/models/base_table.py` |
 | Snowflake Connector | ✅ | `src/connectors/snowflake_connector.py` |
-| Table Models (20) | ✅ | `src/models/` |
+| Table Models (23) | ✅ | `src/models/` |
 | SQL Generator | ✅ | `src/sql_generator/` |
 | Table Manager | ✅ | `src/table_manager/create_tables.py` |
 | CLI Framework | ✅ | `src/cli/` |
-| Data Generators | ✅ | `src/data_generators/` |
+| Data Generators (23) | ✅ | `src/data_generators/` |
 | Data Loaders | ✅ | `src/data_loaders/` |
 | Execution Workflows | ✅ | `src/workflows/` |
 | PostgreSQL Connector | ✅ | `src/connectors/postgres_connector.py` |
@@ -306,6 +308,6 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 
 ---
 
-**Document Version:** 2.7  
-**Last Updated:** March 9, 2026  
-**Status:** All Phases Complete
+**Document Version:** 2.8  
+**Last Updated:** March 30, 2026  
+**Status:** All Phases Complete - Customer dimension split implemented

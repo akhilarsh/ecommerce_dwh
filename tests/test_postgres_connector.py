@@ -7,7 +7,6 @@ from src.connectors.postgres_connector import PostgresConnector
 
 
 class TestPostgresConnectorInit:
-
     def test_missing_user_raises(self, monkeypatch):
         monkeypatch.delenv("POSTGRES_USER", raising=False)
         monkeypatch.delenv("POSTGRES_DATABASE", raising=False)
@@ -37,8 +36,12 @@ class TestPostgresConnectorInit:
         monkeypatch.setenv("POSTGRES_DATABASE", "envdb")
 
         conn = PostgresConnector(
-            host="myhost", port=5433, user="myuser",
-            password="secret", database="mydb", schema="myschema",
+            host="myhost",
+            port=5433,
+            user="myuser",
+            password="secret",
+            database="mydb",
+            schema="myschema",
         )
         assert conn.host == "myhost"
         assert conn.port == 5433
@@ -48,7 +51,6 @@ class TestPostgresConnectorInit:
 
 
 class TestPostgresConnectorOperations:
-
     @patch("src.connectors.postgres_connector.psycopg2")
     def test_connect_sets_search_path(self, mock_psycopg2, monkeypatch):
         monkeypatch.setenv("POSTGRES_USER", "u")
@@ -63,9 +65,15 @@ class TestPostgresConnectorOperations:
         connector.connect()
 
         mock_psycopg2.connect.assert_called_once_with(
-            host="localhost", port=5432, user="u", password=None, dbname="d",
+            host="localhost",
+            port=5432,
+            user="u",
+            password=None,
+            dbname="d",
         )
-        mock_cursor.execute.assert_called_once_with("SET search_path TO myschema, public")
+        mock_cursor.execute.assert_called_once_with(
+            'SET search_path TO "myschema", public'
+        )
 
     @patch("src.connectors.postgres_connector.psycopg2")
     def test_connect_skips_search_path_for_public(self, mock_psycopg2, monkeypatch):
@@ -98,7 +106,9 @@ class TestPostgresConnectorOperations:
         assert result == [(1,), (2,)]
 
     @patch("src.connectors.postgres_connector.psycopg2")
-    def test_execute_query_no_description_returns_empty(self, mock_psycopg2, monkeypatch):
+    def test_execute_query_no_description_returns_empty(
+        self, mock_psycopg2, monkeypatch
+    ):
         monkeypatch.setenv("POSTGRES_USER", "u")
         monkeypatch.setenv("POSTGRES_DATABASE", "d")
 

@@ -2,11 +2,12 @@
 
 This guide provides step-by-step instructions for setting up and running the e-commerce data warehouse project.
 
-> **Supported Platforms:** Currently Snowflake. BigQuery, Redshift, and Databricks connectors are planned.
+> **Supported Platforms:** Snowflake and PostgreSQL. BigQuery, Redshift, and Databricks connectors are planned.
 
 ## 📋 Prerequisites
 
 ### 1. System Requirements
+
 - **Operating System:** macOS or Linux
 - **Python:** Version 3.10 or higher
 - **RAM:** Minimum 4GB (8GB recommended)
@@ -14,7 +15,7 @@ This guide provides step-by-step instructions for setting up and running the e-c
 
 ### 2. Data Warehouse Account
 
-**Currently Supported: Snowflake**
+#### Option A: Snowflake
 
 - Active Snowflake account
 - User with appropriate privileges (CREATE DATABASE, CREATE SCHEMA, CREATE TABLE)
@@ -22,11 +23,22 @@ This guide provides step-by-step instructions for setting up and running the e-c
 - Note your account details:
   - Account identifier
   - Username
-  - Password
+  - Password / private key
   - Warehouse name
   - Role name
 
+#### Option B: PostgreSQL (default in `.dwh.yaml`)
+
+- PostgreSQL 13+ instance (local or remote)
+- User with CREATE TABLE, INSERT, SELECT privileges on the target database
+- Note your connection details:
+  - Host and port (default: `localhost:5432`)
+  - Username and password
+  - Database name
+  - Schema name
+
 ### 3. Development Tools
+
 - Git (for version control)
 - Text editor or IDE (VS Code recommended)
 - Terminal
@@ -50,6 +62,7 @@ source venv/bin/activate
 ```
 
 **Verify activation:**
+
 ```bash
 which python
 # Should point to the venv directory
@@ -66,6 +79,7 @@ pip list
 ```
 
 **Expected packages:**
+
 - snowflake-connector-python
 - pandas
 - Faker
@@ -110,15 +124,36 @@ dwh config show
 ```
 
 Supported platforms (shorthand / full name):
+
+- `pg` / `postgres` - PostgreSQL *(default — set in `.dwh.yaml`)*
 - `sf` / `snowflake` - Snowflake Data Cloud
-- `bq` / `bigquery` - Google BigQuery
-- `rs` / `redshift` - Amazon Redshift
-- `db` / `databricks` - Databricks
+- `bq` / `bigquery` - Google BigQuery *(planned)*
+- `rs` / `redshift` - Amazon Redshift *(planned)*
+- `db` / `databricks` - Databricks *(planned)*
 
 #### Add Your Credentials to .env
 
+**PostgreSQL (default):**
+
 ```bash
-# DWH Platform Selection (use shorthand or full name)
+# DWH Platform Selection
+DWH_PLATFORM=pg
+
+# PostgreSQL Connection Details
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
+POSTGRES_DATABASE=ecommerce_db
+POSTGRES_SCHEMA=ecommerce_dwh
+
+LOG_LEVEL=INFO
+```
+
+**Snowflake:**
+
+```bash
+# DWH Platform Selection
 DWH_PLATFORM=snowflake
 
 # Snowflake Connection Details
@@ -136,12 +171,14 @@ LOG_LEVEL=INFO
 ```
 
 **Finding Your Snowflake Account Identifier:**
+
 - Format: `<account_locator>.<region>.<cloud_provider>`
 - Example: `xy12345.us-east-1.aws`
 - Or just: `xy12345` (if in same region)
 - Found in Snowflake UI → Account → URL
 
 **Important Security Notes:**
+
 - ⚠️ Never commit .env file to Git
 - ✅ Already listed in .gitignore
 - 🔒 Keep credentials secure
@@ -193,24 +230,26 @@ source venv/bin/activate && dwh create-and-load --drop-existing
 ```
 
 This command will:
-1. ✅ Test Snowflake connection
+
+1. ✅ Test connection
 2. 📊 Use configured database and schema
-3. 🏛️ Create all 20 tables (drops existing if any)
+3. 🏛️ Create all 23 tables (drops existing if any)
 4. 📈 Generate synthetic test data
 5. 📥 Load data into tables
 6. ✔️ Validate data integrity
 
 **Expected output:**
-```
+
+```text
 ✅ Setup Tables completed successfully!
-   Tables: 20 created, 0 already existed
-   Foreign Keys: 34 applied
+   Tables: 23 created, 0 already existed
+   Foreign Keys: 38 applied
 
 ✅ Data generation complete!
    Output: outputs/initial_data
 
 ✅ Data loading complete!
-   Tables loaded: 20
+   Tables loaded: 23
    Total rows: ~25,000
 ```
 
@@ -219,11 +258,13 @@ This command will:
 For more control, run individual CLI commands:
 
 #### 1. Test Connection
+
 ```bash
 source venv/bin/activate && dwh test-connection
 ```
 
 #### 2. Create Tables
+
 ```bash
 # Preview what will be created
 dwh setup-tables --dry-run
@@ -233,6 +274,7 @@ dwh setup-tables
 ```
 
 #### 3. Generate Data
+
 ```bash
 # Generate initial data (uses config defaults)
 dwh generate-initial
@@ -242,6 +284,7 @@ dwh generate-initial --customers 100 --products 500 --orders 5000
 ```
 
 #### 4. Load Data
+
 ```bash
 # Load generated data into Snowflake
 dwh load-data --mode initial --truncate
@@ -399,6 +442,7 @@ dwh load-data --table dim_customers --truncate
 **Error:** `OperationalError: 250001: Could not connect to Snowflake backend`
 
 **Solution:**
+
 1. Verify account identifier is correct
 2. Check network/firewall settings
 3. Ensure warehouse is running
@@ -414,6 +458,7 @@ ping your-account.snowflakecomputing.com
 **Error:** `ProgrammingError: 250001: Incorrect username or password`
 
 **Solution:**
+
 1. Double-check credentials in .env file
 2. Ensure no extra spaces in values
 3. Check if password needs URL encoding
@@ -424,6 +469,7 @@ ping your-account.snowflakecomputing.com
 **Error:** `ProgrammingError: 002003: SQL access control error`
 
 **Solution:**
+
 ```sql
 -- Grant necessary privileges
 GRANT CREATE DATABASE ON ACCOUNT TO ROLE your_role;
@@ -436,6 +482,7 @@ GRANT CREATE TABLE ON SCHEMA ecommerce_dwh TO ROLE your_role;
 **Error:** `Object 'FACT_SALES' already exists`
 
 **Solution:**
+
 ```bash
 # Option 1: Drop and recreate all tables
 dwh setup-tables --drop-existing
@@ -449,6 +496,7 @@ dwh setup-tables  # Skips existing tables automatically
 **Error:** `FK constraint violated`
 
 **Solution:**
+
 - The CLI automatically loads tables in FK-dependency order
 - Ensure you use `dwh load-data` which handles ordering
 - Verify referential integrity:
@@ -463,6 +511,7 @@ dwh validate --check-fk
 **Error:** `SyntaxError` or import errors
 
 **Solution:**
+
 ```bash
 # Check Python version
 python3 --version  # Should be 3.10+

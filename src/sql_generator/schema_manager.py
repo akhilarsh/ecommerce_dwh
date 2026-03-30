@@ -28,6 +28,8 @@ from src.models.dimension_tables.dim_stores import DimStores
 from src.models.dimension_tables.dim_employees import DimEmployees
 from src.models.dimension_tables.dim_products import DimProducts
 from src.models.dimension_tables.dim_customers import DimCustomers
+from src.models.dimension_tables.dim_customer_address import DimCustomerAddress
+from src.models.dimension_tables.dim_customer_loyalty import DimCustomerLoyalty
 from src.models.fact_tables.fact_sales import FactSales
 from src.models.fact_tables.fact_inventory_snapshots import FactInventorySnapshots
 from src.models.fact_tables.fact_customer_interactions import FactCustomerInteractions
@@ -78,7 +80,9 @@ class SchemaManager:
                 DimCustomers(),
             ],
             "dependent_dimensions": [
-                DimEmployees(),  # Depends on dim_stores
+                DimEmployees(),         # Depends on dim_stores
+                DimCustomerAddress(),   # Depends on dim_customers
+                DimCustomerLoyalty(),   # Depends on dim_customers, dim_loyalty_tiers, dim_accounts
             ],
             "fact_tables": [
                 FactSales(),

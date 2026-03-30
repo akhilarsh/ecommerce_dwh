@@ -36,7 +36,7 @@ class TestExistingKeysLoader:
         loader.initialize_empty()
         
         # Should have all 18 tables
-        assert len(loader._key_cache) == 18
+        assert len(loader._key_cache) == 23
         assert "dim_customers" in loader._key_cache
         assert "fact_sales" in loader._key_cache
     
@@ -111,7 +111,7 @@ class TestExistingKeysLoader:
         
         summary = loader.summary()
         
-        assert summary["table_count"] == 18
+        assert summary["table_count"] == 23
         assert summary["tables"]["dim_customers"]["max_key"] == 3
         assert summary["tables"]["dim_customers"]["row_count"] == 3
     

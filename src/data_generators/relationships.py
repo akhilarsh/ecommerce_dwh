@@ -25,11 +25,13 @@ class ReferentialIntegrityHandler:
     FK_RELATIONSHIPS = [
         # Dimension FKs
         ("dim_customers", "segment_key", "dim_customer_segments", "segment_key"),
-        ("dim_customers", "account_key", "dim_accounts", "account_key"),
-        ("dim_customers", "loyalty_tier_key", "dim_loyalty_tiers", "tier_key"),
+        ("dim_customer_address", "customer_key", "dim_customers", "customer_key"),
+        ("dim_customer_loyalty", "customer_key", "dim_customers", "customer_key"),
+        ("dim_customer_loyalty", "loyalty_tier_key", "dim_loyalty_tiers", "tier_key"),
+        ("dim_customer_loyalty", "account_key", "dim_accounts", "account_key"),
         ("dim_products", "category_key", "dim_product_categories", "category_key"),
         ("dim_employees", "store_key", "dim_stores", "store_key"),
-        
+
         # Fact Sales FKs
         ("fact_sales", "date_key", "dim_dates", "date_key"),
         ("fact_sales", "time_key", "dim_time", "time_key"),
@@ -40,12 +42,12 @@ class ReferentialIntegrityHandler:
         ("fact_sales", "payment_method_key", "dim_payment_methods", "payment_method_key"),
         ("fact_sales", "shipping_method_key", "dim_shipping_methods", "shipping_method_key"),
         ("fact_sales", "employee_key", "dim_employees", "employee_key"),
-        
+
         # Fact Inventory FKs
         ("fact_inventory_snapshots", "date_key", "dim_dates", "date_key"),
         ("fact_inventory_snapshots", "product_key", "dim_products", "product_key"),
         ("fact_inventory_snapshots", "store_key", "dim_stores", "store_key"),
-        
+
         # Fact Customer Interactions FKs
         ("fact_customer_interactions", "date_key", "dim_dates", "date_key"),
         ("fact_customer_interactions", "time_key", "dim_time", "time_key"),
@@ -54,22 +56,22 @@ class ReferentialIntegrityHandler:
         ("fact_customer_interactions", "store_key", "dim_stores", "store_key"),
         ("fact_customer_interactions", "employee_key", "dim_employees", "employee_key"),
         ("fact_customer_interactions", "sale_key", "fact_sales", "sale_key"),
-        
+
         # Fact Loyalty Points FKs
         ("fact_loyalty_points", "date_key", "dim_dates", "date_key"),
         ("fact_loyalty_points", "time_key", "dim_time", "time_key"),
         ("fact_loyalty_points", "customer_key", "dim_customers", "customer_key"),
         ("fact_loyalty_points", "sale_key", "fact_sales", "sale_key"),
         ("fact_loyalty_points", "channel_key", "dim_channels", "channel_key"),
-        
+
         # Bridge Order Items FKs
         ("bridge_order_items", "sale_key", "fact_sales", "sale_key"),
         ("bridge_order_items", "product_key", "dim_products", "product_key"),
-        
+
         # Bridge Product Promotions FKs
         ("bridge_product_promotions", "product_key", "dim_products", "product_key"),
         ("bridge_product_promotions", "promotion_key", "dim_promotions", "promotion_key"),
-        
+
         # Bridge Account Customers FKs
         ("bridge_account_customers", "account_key", "dim_accounts", "account_key"),
         ("bridge_account_customers", "customer_key", "dim_customers", "customer_key"),
@@ -214,6 +216,8 @@ class ReferentialIntegrityHandler:
             "dim_employees",
             "dim_products",
             "dim_customers",
+            "dim_customer_address",
+            "dim_customer_loyalty",
             # Fact tables
             "fact_sales",
             "fact_inventory_snapshots",

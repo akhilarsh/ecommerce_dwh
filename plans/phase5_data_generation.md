@@ -24,13 +24,13 @@ deliverables:
     content: StoreHelper for dim_stores, dim_employees
     status: complete
   - id: sales-helper
-    content: SalesHelper for dim_accounts, dim_customers, bridge_account_customers, fact_sales, bridge_order_items, fact_interactions, fact_loyalty
+    content: SalesHelper for dim_accounts, dim_customers, dim_customer_address, dim_customer_loyalty, bridge_account_customers, fact_sales, bridge_order_items, fact_interactions, fact_loyalty
     status: complete
   - id: inventory-helper
     content: InventoryHelper for fact_inventory_snapshots
     status: complete
   - id: entity-generators
-    content: 21 entity generators in src/data_generators/entities/
+    content: 23 entity generators in src/data_generators/entities/
     status: complete
   - id: keys-loader
     content: ExistingKeysLoader for incremental key management
@@ -60,7 +60,7 @@ Config-driven data generation with a single `DataGenerator` that delegates to do
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              DataGenerator                                   │
 │                     (main entry point, delegates to helpers)                 │
@@ -79,7 +79,9 @@ Config-driven data generation with a single `DataGenerator` that delegates to do
 │  │   SalesHelper   │  │ InventoryHelper │                                  │
 │  │  ─────────────  │  │  ─────────────  │                                  │
 │  │  dim_accounts   │  │  fact_inventory │                                  │
-│  │  dim_customers  │  │                 │                                  │
+│  │  dim_cust_prof  │  │                 │                                  │
+│  │  dim_cust_addr  │  │                 │                                  │
+│  │  dim_cust_loyal │  │                 │                                  │
 │  │  bridge_acct_cu │  │                 │                                  │
 │  │  fact_sales     │  │                 │                                  │
 │  │  bridge_orders  │  │                 │                                  │
@@ -89,13 +91,13 @@ Config-driven data generation with a single `DataGenerator` that delegates to do
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                           Entity Generators                                  │
-│         (DimCustomersGenerator, FactSalesGenerator, etc. - 21 total)        │
+│         (DimCustomersGenerator, FactSalesGenerator, etc. - 23 total)        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Directory Structure
 
-```
+```text
 project_root/
 ├── datagen_config.yaml         # THE source of truth (project root)
 src/data_generators/
@@ -110,10 +112,10 @@ src/data_generators/
 │   ├── calendar_helper.py      # dim_dates, dim_time
 │   ├── catalog_helper.py       # dim_products, dim_categories, dim_promotions
 │   ├── store_helper.py         # dim_stores, dim_employees
-│   ├── sales_helper.py         # dim_customers, fact_sales, fact_interactions, fact_loyalty
+│   ├── sales_helper.py         # dim_customers, dim_customer_address, dim_customer_loyalty, fact_sales, fact_interactions, fact_loyalty
 │   └── inventory_helper.py     # fact_inventory_snapshots
 │
-├── entities/                   # Individual entity generators (21 files)
+├── entities/                   # Individual entity generators (23 files)
 │   ├── __init__.py
 │   ├── base_entity.py          # BaseEntityGenerator
 │   ├── dim_dates.py
@@ -130,6 +132,8 @@ src/data_generators/
 │   ├── dim_employees.py
 │   ├── dim_products.py
 │   ├── dim_customers.py
+│   ├── dim_customer_address.py
+│   ├── dim_customer_loyalty.py
 │   ├── fact_sales.py
 │   ├── fact_inventory.py
 │   ├── fact_interactions.py
@@ -304,7 +308,7 @@ Main entry point that delegates to domain helpers:
 | CalendarHelper | dim_dates, dim_time |
 | CatalogHelper | dim_product_categories, dim_products, dim_promotions, bridge_product_promotions |
 | StoreHelper | dim_stores, dim_employees |
-| SalesHelper | dim_accounts, dim_customers, bridge_account_customers, fact_sales, bridge_order_items, fact_customer_interactions, fact_loyalty_points |
+| SalesHelper | dim_accounts, dim_customers, dim_customer_address, dim_customer_loyalty, bridge_account_customers, fact_sales, bridge_order_items, fact_customer_interactions, fact_loyalty_points |
 | InventoryHelper | fact_inventory_snapshots |
 
 ### Utilities
@@ -318,14 +322,15 @@ Main entry point that delegates to domain helpers:
 
 ### Initial Load
 
-```
+```text
 1. DataGenerator.generate_static_dimensions() → dim_channels, dim_payment_methods,
                                                dim_shipping_methods, dim_customer_segments,
                                                dim_loyalty_tiers
 2. CalendarHelper.generate()     → dim_dates, dim_time
 3. CatalogHelper.generate()      → dim_categories, dim_products, dim_promotions
 4. StoreHelper.generate()        → dim_stores, dim_employees
-5. SalesHelper.generate()        → dim_accounts, dim_customers, bridge_account_customers,
+5. SalesHelper.generate()        → dim_accounts, dim_customers, dim_customer_address,
+                                   dim_customer_loyalty, bridge_account_customers,
                                    fact_sales, bridge_order_items,
                                    fact_interactions, fact_loyalty
 6. InventoryHelper.generate()    → fact_inventory_snapshots
@@ -336,7 +341,7 @@ Main entry point that delegates to domain helpers:
 
 ### Incremental
 
-```
+```text
 1. Load keys from cache
 2. SalesHelper.generate_incremental(start_date, end_date)
    - Generate new customers (distributed across date range)
@@ -358,18 +363,21 @@ The `ReferentialIntegrityHandler` validates FK relationships:
 - For **incremental**: Validates against cached keys + new keys
 
 This ensures:
+
 - All FK references point to valid parent keys
 - No orphaned records in fact/bridge tables
 
 ## Output Structure
 
-```
+```text
 outputs/
 ├── initial_data/           # Initial load output
 │   ├── dim_customers.csv
+│   ├── dim_customer_address.csv
+│   ├── dim_customer_loyalty.csv
 │   ├── dim_products.csv
 │   ├── fact_sales.csv
-│   └── ... (20 files)
+│   └── ... (23 files)
 │
 ├── incremental/            # Incremental output
 │   └── 2026-02-01_to_2026-02-04/

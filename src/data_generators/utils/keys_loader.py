@@ -57,26 +57,35 @@ class KeyInfo:
         )
 
 
-# Table to primary key column mapping
+# Table to primary key column mapping (all 23 tables, in dependency order)
 TABLE_KEY_COLUMNS = {
-    "dim_customers": "customer_key",
-    "dim_products": "product_key",
-    "dim_stores": "store_key",
-    "dim_employees": "employee_key",
-    "dim_channels": "channel_key",
+    # Dimension tables (no FK dependencies)
     "dim_dates": "date_key",
     "dim_time": "time_key",
-    "dim_promotions": "promotion_key",
+    "dim_channels": "channel_key",
     "dim_payment_methods": "payment_method_key",
     "dim_shipping_methods": "shipping_method_key",
-    "dim_product_categories": "category_key",
     "dim_customer_segments": "segment_key",
+    "dim_loyalty_tiers": "tier_key",
+    "dim_product_categories": "category_key",
+    "dim_promotions": "promotion_key",
+    "dim_accounts": "account_key",
+    "dim_stores": "store_key",
+    # Dimension tables (with FK dependencies)
+    "dim_employees": "employee_key",
+    "dim_products": "product_key",
+    "dim_customers": "customer_key",
+    "dim_customer_address": "address_key",
+    "dim_customer_loyalty": "loyalty_key",
+    # Fact tables
     "fact_sales": "sale_key",
     "fact_inventory_snapshots": "inventory_snapshot_key",
     "fact_customer_interactions": "interaction_key",
     "fact_loyalty_points": "loyalty_transaction_key",
+    # Bridge tables
     "bridge_order_items": "order_item_key",
     "bridge_product_promotions": "product_promotion_key",
+    "bridge_account_customers": "account_customer_key",
 }
 
 
@@ -344,10 +353,11 @@ class ExistingKeysLoader:
             Dictionary of dimension table names to key lists
         """
         dimension_tables = [
-            "dim_customers", "dim_products", "dim_stores", "dim_employees",
-            "dim_channels", "dim_dates", "dim_time", "dim_promotions",
-            "dim_payment_methods", "dim_shipping_methods",
-            "dim_product_categories", "dim_customer_segments"
+            "dim_dates", "dim_time", "dim_channels", "dim_payment_methods",
+            "dim_shipping_methods", "dim_customer_segments", "dim_loyalty_tiers",
+            "dim_product_categories", "dim_promotions", "dim_accounts",
+            "dim_stores", "dim_employees", "dim_products",
+            "dim_customers", "dim_customer_address", "dim_customer_loyalty",
         ]
         
         result = {}

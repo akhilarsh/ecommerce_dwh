@@ -190,6 +190,19 @@ erDiagram
         VARCHAR phone_number
         DATE birth_date
         VARCHAR gender
+        NUMBER segment_key FK
+        VARCHAR preferred_channel
+        BOOLEAN is_active
+        DATE effective_date
+        DATE end_date
+        BOOLEAN is_current
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
+    }
+
+    dim_customer_address {
+        NUMBER address_key PK
+        NUMBER customer_key FK
         VARCHAR address_line1
         VARCHAR address_line2
         VARCHAR city
@@ -197,14 +210,21 @@ erDiagram
         VARCHAR postal_code
         VARCHAR country
         DATE registration_date
-        NUMBER segment_key FK
-        NUMBER account_key FK
-        VARCHAR preferred_channel
+        DATE effective_date
+        DATE end_date
+        BOOLEAN is_current
+        TIMESTAMP_NTZ created_at
+        TIMESTAMP_NTZ updated_at
+    }
+
+    dim_customer_loyalty {
+        NUMBER loyalty_key PK
+        NUMBER customer_key FK
         BOOLEAN loyalty_program_member
         NUMBER loyalty_tier_key FK
         NUMBER loyalty_points_balance
         NUMBER lifetime_value
-        BOOLEAN is_active
+        NUMBER account_key FK
         DATE effective_date
         DATE end_date
         BOOLEAN is_current
@@ -421,9 +441,11 @@ erDiagram
     %% ===== RELATIONSHIPS =====
 
     %% Dimension FK dependencies
-    dim_customers }o--|| dim_accounts : "account_key"
     dim_customers ||--o{ dim_customer_segments : "segment_key"
-    dim_customers }o--o| dim_loyalty_tiers : "loyalty_tier_key"
+    dim_customer_address }o--|| dim_customers : "customer_key"
+    dim_customer_loyalty }o--|| dim_customers : "customer_key"
+    dim_customer_loyalty }o--|| dim_accounts : "account_key"
+    dim_customer_loyalty }o--o| dim_loyalty_tiers : "loyalty_tier_key"
     dim_products ||--o{ dim_product_categories : "category_key"
     dim_employees ||--o{ dim_stores : "store_key"
 
@@ -492,11 +514,13 @@ erDiagram
 | __dim_customer_segments__ | `segment_key` | None | Customer classification groups (High Value, Regular, New) with LTV thresholds. Parent to `dim_customers`. |
 | __dim_accounts__ | `account_key` | None | Customer accounts (Individual, Household, Business, Corporate, Guest). Many customers per account (many:1). Supports B2B attributes (company name, tax ID, credit limit, payment terms). |
 
-### Dimension Tables (With FK Dependencies) - 3 Tables
+### Dimension Tables (With FK Dependencies) - 5 Tables
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
-| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments`, `account_key` → `dim_accounts` | Each customer belongs to one segment and one account (many:1). SCD Type 2 table - tracks historical changes via `effective_date`, `end_date`, `is_current`. Multiple rows per customer_id possible. |
+| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments` | Customer identity & demographics. SCD Type 2 - tracks changes via `effective_date`, `end_date`, `is_current`. Contains name, email, phone, birth_date, gender, preferred_channel. |
+| __dim_customer_address__ | `address_key` | `customer_key` → `dim_customers` | Customer addresses. SCD Type 2 - tracks address changes over time. Contains street, city, state, postal_code, country, registration_date. |
+| __dim_customer_loyalty__ | `loyalty_key` | `customer_key` → `dim_customers`, `account_key` → `dim_accounts`, `loyalty_tier_key` → `dim_loyalty_tiers` | Loyalty program metrics. SCD Type 2 - tracks loyalty status changes. Contains loyalty_program_member, loyalty_points_balance, lifetime_value. |
 | __dim_products__ | `product_key` | `category_key` → `dim_product_categories` | Each product belongs to one category. SCD Type 2 table - tracks price/attribute changes over time. Multiple rows per product_id possible. |
 | __dim_employees__ | `employee_key` | `store_key` → `dim_stores` | Each employee works at one store. Links sales associates to physical locations. |
 
@@ -546,10 +570,10 @@ erDiagram
 | Table Type | Count | Total FKs |
 |------------|-------|-----------|
 | Dimensions (no FK) | 11 | 0 |
-| Dimensions (with FK) | 3 | 5 |
+| Dimensions (with FK) | 5 | 9 |
 | Fact Tables | 4 | 24 |
 | Bridge Tables | 3 | 6 |
-| **Total** | **21** | **35** |
+| **Total** | **23** | **39** |
 
 ---
 
@@ -564,10 +588,12 @@ erDiagram
 | Table | Role | Data in This Scenario |
 |---|---|---|
 | __dim_accounts__ | Account context | Sarah's account (account_key=10042, type="Individual", tier="Premium", status="Active"). Many customers can share one account (e.g. Household has multiple members). B2B customers have company_name, tax_id, credit_limit here. |
-| __dim_customers__ | WHO bought | Sarah Chen, customer_id=`C-10042`, loyalty_tier_key -> Gold tier (12,450 points), segment_key -> "High Value", account_key -> 10042. SCD Type 2 means if she later earns enough points to hit Platinum, a new row is inserted with updated loyalty_tier_key and effective_date. |
+| __dim_customers__ | WHO bought | Sarah Chen, customer_id=`C-10042`, segment_key -> "High Value". SCD Type 2 means if her segment changes, a new row is inserted with updated segment_key and effective_date. Contains: first_name, last_name, email, preferred_channel. |
+| __dim_customer_address__ | WHERE delivered | Sarah's shipping address: "123 Main St", city="San Francisco", state="CA". SCD Type 2 tracks address changes. Contains registration_date. |
+| __dim_customer_loyalty__ | Loyalty status | loyalty_program_member=TRUE, loyalty_tier_key -> Gold tier (12,450 points), lifetime_value=$12,450. SCD Type 2 tracks loyalty changes. Links to dim_customers and dim_accounts. |
 | __dim_customer_segments__ | Customer classification | "High Value" segment -- LTV between $5,000-$25,000, min 12 purchases/year. Sarah's segment_key in dim_customers points here. |
-| __dim_loyalty_tiers__ | Tier definition | Gold tier: min_points=4,000, max_points=9,999. Sarah's 12,450 points actually qualify her for Platinum (10,000+). loyalty_tier_key is a FK to this table — never stored as a raw string. |
-| __bridge_account_customers__ | Account-customer link | account_key=10042, customer_key=10042, role="Owner", is_primary_contact=TRUE. Maps many:one (many customers per account) with role metadata. |
+| __dim_loyalty_tiers__ | Tier definition | Gold tier: min_points=4,000, max_points=9,999. Sarah's 12,450 points actually qualify her for Platinum (10,000+). loyalty_tier_key in dim_customer_loyalty is a FK to this table — never stored as a raw string. |
+| __bridge_account_customers__ | Account-customer link | account_key=10042, customer_key=10042, role="Owner", is_primary_contact=TRUE. Maps many:one (many customers per account) with role metadata. Links to dim_customers. |
 | __dim_dates__ | WHEN (calendar) | date_key=`20251128`, Black Friday, Q4, is_holiday=TRUE, is_weekend=FALSE. Every fact table references this same row for Nov 28. |
 | __dim_time__ | WHEN (time of day) | time_key=`1435`, hour_24=14, day_part="Afternoon", is_business_hours=TRUE. |
 | __dim_stores__ | WHERE | "Downtown Flagship", store_type="Flagship", city="San Francisco". The employee and the in-store interaction both reference this. |
@@ -578,12 +604,12 @@ erDiagram
 | __dim_payment_methods__ | Payment used | "Apple Pay", payment_type="Digital Wallet". |
 | __dim_shipping_methods__ | Delivery method | "Express Shipping", carrier="FedEx", estimated_days_min=1, estimated_days_max=2, base_cost=$12.99. |
 | __dim_employees__ | WHO assisted | "James Rodriguez", position="Sales Associate", store_key->Downtown Flagship. |
-| __fact_sales__ | The transaction | sale_key=98765, order_id=`ORD-2025-44210`. gross_amount=$364.98, discount_amount=$69.99 (20% off headphones only), tax_amount=$25.75, shipping_cost=$12.99, net_amount=$333.73. Links to all 9 dimensions via foreign keys. |
+| __fact_sales__ | The transaction | sale_key=98765, order_id=`ORD-2025-44210`. gross_amount=$364.98, discount_amount=$69.99 (20% off headphones only), tax_amount=$25.75, shipping_cost=$12.99, net_amount=$333.73. Links to all 9 dimensions via foreign keys, including dim_customers. |
 | __bridge_order_items__ | Line-level detail | __Line 1:__ product_key=501 (Sony), qty=1, unit_price=$349.99, discount=$69.99, line_total=$280.00. __Line 2:__ product_key=892 (USB-C), qty=1, unit_price=$14.99, discount=$0, line_total=$14.99. This is how a single sale resolves the many-to-many between orders and products. |
 | __bridge_product_promotions__ | Which products qualify | product_key=501 + promotion_key->"Black Friday 20%", is_featured=TRUE. The USB-C cable isn't in this bridge table (not eligible). |
-| __fact_customer_interactions__ | Customer touchpoint | interaction_type="Store Visit", duration_seconds=2700, is_converted=TRUE, sale_key->98765. Tracks that this visit converted. |
+| __fact_customer_interactions__ | Customer touchpoint | interaction_type="Store Visit", duration_seconds=2700, is_converted=TRUE, sale_key->98765. Links to dim_customers. Tracks that this visit converted. |
 | __fact_inventory_snapshots__ | Stock impact | End-of-day snapshot: Sony headphones at Downtown Flagship went from quantity_on_hand=15 to 14. USB-C cable from 200 to 199. is_below_reorder_point=FALSE for both. |
-| __fact_loyalty_points__ | Rewards earned | transaction_type="Earned", points=668 (normally 334 but 2x for Black Friday), points_balance_after=12,450, sale_key->98765. |
+| __fact_loyalty_points__ | Rewards earned | transaction_type="Earned", points=668 (normally 334 but 2x for Black Friday), points_balance_after=12,450, sale_key->98765. Links to dim_customers. |
 
 ### Key Relationship Patterns
 
@@ -595,10 +621,16 @@ __Same pattern for promotions:__ One promotion applies to many products, one pro
 
 __Fact-to-fact link:__ `fact_customer_interactions.sale_key` and `fact_loyalty_points.sale_key` both reference `fact_sales`, enabling queries like _"For interactions that led to purchases, how many loyalty points were earned?"_
 
-__SCD Type 2 (dim_customers, dim_products):__ When Sarah's loyalty tier changes from Gold to Platinum, a new row is inserted with `is_current=TRUE` and a new `effective_date`. The old row gets `end_date` set and `is_current=FALSE`. Historical sales still join to the old row (Gold tier at time of purchase), while current reports see Platinum. Same logic applies when product prices change.
+__SCD Type 2 (dim_customers, dim_customer_address, dim_customer_loyalty, dim_products):__ When Sarah moves to a new address, a new row is inserted into `dim_customer_address` with `is_current=TRUE` and a new `effective_date`. The old row gets `end_date` set and `is_current=FALSE`. Historical orders still reference the old address (shipping address at time of purchase), while current reports see the new address. Same logic applies when loyalty tier changes (new row in dim_customer_loyalty) or product prices change.
 
-__Account-customer many:one:__ Many customers can share one account (`dim_customers.account_key -> dim_accounts.account_key`). The `bridge_account_customers` table records the relationship with role metadata (Owner, Admin, etc.) and temporal tracking. Supports B2C (Individual accounts), Household (multiple family members), and B2B (Business/Corporate accounts with multiple buyers and billing terms).
+__Customer dimension split:__ The original `dim_customers` table has been split into three tables for better normalization:
 
-__Dimension-to-dimension:__ `dim_customers -> dim_customer_segments`, `dim_customers -> dim_accounts`, `dim_customers -> dim_loyalty_tiers`, `dim_products -> dim_product_categories`, `dim_employees -> dim_stores` -- these model hierarchical/classification relationships within the dimensional layer itself.
+- `dim_customers` - Identity (name, email, phone) and segment
+- `dim_customer_address` - Shipping/registration address with SCD tracking
+- `dim_customer_loyalty` - Loyalty program metrics linked to both profile and account
+
+__Account-customer many:one:__ Many customers can share one account (`dim_customer_loyalty.account_key -> dim_accounts.account_key`). The `bridge_account_customers` table records the relationship with role metadata (Owner, Admin, etc.) and temporal tracking. Supports B2C (Individual accounts), Household (multiple family members), and B2B (Business/Corporate accounts with multiple buyers and billing terms).
+
+__Dimension-to-dimension:__ `dim_customers -> dim_customer_segments`, `dim_customer_address -> dim_customers`, `dim_customer_loyalty -> dim_customers`, `dim_customer_loyalty -> dim_accounts`, `dim_customer_loyalty -> dim_loyalty_tiers`, `dim_products -> dim_product_categories`, `dim_employees -> dim_stores` -- these model hierarchical/classification relationships within the dimensional layer itself.
 
 ---

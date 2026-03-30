@@ -3,19 +3,19 @@ name: Phase 3 - Table Creation
 status: completed
 completion_date: "2026-01-29"
 duration_estimate: 2 hours
-overview: "Create Snowflake database schema and all 20 tables with primary and foreign key constraints."
+overview: "Create Snowflake database schema and all 23 tables with primary and foreign key constraints."
 deliverables:
   - id: table-creator
     content: TableCreator class (src/table_manager/create_tables.py)
     status: completed
   - id: create-tables
-    content: Create all 21 tables in dependency order
+    content: Create all 23 tables in dependency order
     status: completed
   - id: apply-pk
     content: Primary keys (included in CREATE TABLE)
     status: completed
   - id: apply-fk
-    content: Foreign key constraints (35 total)
+    content: Foreign key constraints (39 total)
     status: completed
   - id: cli-command
     content: CLI command (dwh create)
@@ -32,7 +32,7 @@ deliverables:
 
 ## Objective
 
-Create database schema and all 21 tables in Snowflake with proper constraints.
+Create database schema and all 23 tables in Snowflake with proper constraints.
 
 ## Key Files
 
@@ -78,26 +78,28 @@ Tables are created in dependency order to ensure FK references are valid.
 
 ### 2. Master Dimensions
 
-11. dim_stores
-12. dim_products (depends on dim_product_categories)
-13. dim_customers (depends on dim_customer_segments, dim_accounts, dim_loyalty_tiers)
+1. dim_stores
+2. dim_products (depends on dim_product_categories)
+3. dim_customers (depends on dim_customer_segments)
+4. dim_customer_address (depends on dim_customers)
+5. dim_customer_loyalty (depends on dim_customers, dim_loyalty_tiers, dim_accounts)
 
 ### 3. Dependent Dimensions
 
-14. dim_employees (depends on dim_stores)
+1. dim_employees (depends on dim_stores)
 
 ### 4. Fact Tables
 
-15. fact_sales (depends on multiple dimensions)
-16. fact_inventory_snapshots
-17. fact_customer_interactions
-18. fact_loyalty_points
+1. fact_sales (depends on multiple dimensions)
+2. fact_inventory_snapshots
+3. fact_customer_interactions
+4. fact_loyalty_points
 
 ### 5. Bridge Tables
 
-19. bridge_order_items
-20. bridge_product_promotions
-21. bridge_account_customers (depends on dim_accounts, dim_customers)
+1. bridge_order_items
+2. bridge_product_promotions
+3. bridge_account_customers (depends on dim_accounts, dim_customers)
 
 ## CLI Usage
 
@@ -133,12 +135,15 @@ with connector:
 
 ## Foreign Key Constraints
 
-35 foreign key constraints are applied after table creation:
+39 foreign key constraints are applied after table creation:
 
 | Child Table | FK Column | Parent Table |
 |-------------|-----------|--------------|
 | dim_customers | segment_key | dim_customer_segments |
-| dim_customers | account_key | dim_accounts |
+| dim_customer_address | customer_key | dim_customers |
+| dim_customer_loyalty | customer_key | dim_customers |
+| dim_customer_loyalty | account_key | dim_accounts |
+| dim_customer_loyalty | loyalty_tier_key | dim_loyalty_tiers |
 | dim_products | category_key | dim_product_categories |
 | dim_employees | store_key | dim_stores |
 | fact_sales | customer_key | dim_customers |
@@ -159,9 +164,9 @@ with connector:
 
 The TableCreator validates:
 
-1. All 20 tables exist
+1. All 23 tables exist
 2. All primary keys applied
-3. All 35 foreign keys applied
+3. All 39 foreign keys applied
 4. Column counts match definitions
 5. Data types match specifications
 
@@ -171,7 +176,7 @@ The TableCreator validates:
 -- List all tables
 SHOW TABLES IN SCHEMA ecommerce_dwh;
 
--- Count tables (should be 20)
+-- Count tables (should be 23)
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
 WHERE TABLE_SCHEMA = 'ECOMMERCE_DWH';
 

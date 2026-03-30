@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import psycopg2
 import psycopg2.extras
+import psycopg2.sql as sql
 
 from src.connectors.base_connector import BaseConnector
 from src.utils.logger import get_logger
@@ -61,7 +62,9 @@ class PostgresConnector(BaseConnector):
 
     def connect(self) -> None:
         try:
-            logger.info(f"Connecting to PostgreSQL: {self.host}:{self.port}/{self.database}")
+            logger.info(
+                f"Connecting to PostgreSQL: {self.host}:{self.port}/{self.database}"
+            )
 
             self.connection = psycopg2.connect(
                 host=self.host,
@@ -74,7 +77,10 @@ class PostgresConnector(BaseConnector):
             self.cursor = self.connection.cursor()
 
             if self.schema and self.schema != "public":
-                self.cursor.execute(f"SET search_path TO {self.schema}, public")
+                stmt = sql.SQL("SET search_path TO {schema}, public").format(
+                    schema=sql.Identifier(self.schema)
+                )
+                self.cursor.execute(stmt)
 
             logger.info("Successfully connected to PostgreSQL")
 
@@ -129,7 +135,9 @@ class PostgresConnector(BaseConnector):
             raise RuntimeError("Not connected to PostgreSQL")
 
         try:
-            cursor = self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor = self.connection.cursor(
+                cursor_factory=psycopg2.extras.RealDictCursor
+            )
             logger.debug(f"Executing query: {query[:100]}...")
 
             if params:

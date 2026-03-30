@@ -4,6 +4,12 @@
 
 Add PostgreSQL as a first-class warehouse target alongside Snowflake. Introduces a PG connector, PG-specific data loader, DDL type adapter, connector/loader factories, and CLI platform switching — all without modifying existing Snowflake code paths.
 
+**Scope:** Implements all 23 tables including the customer dimension split:
+
+- `dim_customers` - Customer identity & demographics (SCD Type 2)
+- `dim_customer_address` - Customer addresses (SCD Type 2)
+- `dim_customer_loyalty` - Loyalty program metrics (SCD Type 2)
+
 ## Status: Complete
 
 ---
@@ -113,6 +119,7 @@ flowchart LR
 50 tests across three files:
 
 **test_postgres_connector.py** (12 tests)
+
 - Missing `user` / `database` env vars raise `ValueError`
 - Default values read from env (`host=localhost`, `port=5432`, `schema=public`)
 - Explicit constructor params override env vars
@@ -123,6 +130,7 @@ flowchart LR
 - Context manager rolls back on exception
 
 **test_postgres_loader.py** (13 tests)
+
 - `platform_name` returns `"postgres"`
 - Loader inherits schema and database from connector
 - Small DataFrames route to `execute_values`
@@ -136,6 +144,7 @@ flowchart LR
 - `get_row_count` returns correct count from connector
 
 **test_pg_ddl_adapter.py** (25 tests)
+
 - Type mapping: `NUMBER(38)` → `BIGINT`, small precision → `INTEGER`, monetary → `NUMERIC`, `TIMESTAMP_NTZ` → `TIMESTAMP WITHOUT TIME ZONE`, passthrough types, `FLOAT` → `DOUBLE PRECISION`
 - `map_column_to_pg`: basic column, column with default, VARCHAR, comments excluded from column def
 - `generate_pg_create_table`: structure includes `CREATE TABLE IF NOT EXISTS`, no Snowflake-specific syntax (`AUTOINCREMENT`, `CLUSTER BY`, `COMMENT =`)

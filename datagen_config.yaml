@@ -57,7 +57,7 @@ initial_load:
   
   # Date range for historical data
   date_start: ${DATAGEN_DATE_START || 2025-01-01}
-  date_end: ${DATAGEN_DATE_END || 2026-03-08}
+  date_end: ${DATAGEN_DATE_END || 2026-03-30}
 
 # -----------------------------------------------------------------------------
 # Incremental Settings - Operations and event-driven generation
