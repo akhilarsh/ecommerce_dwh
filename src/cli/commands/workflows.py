@@ -63,7 +63,18 @@ def setup_tables_command(
         workflow = TableSetupWorkflow()
         with get_connector(platform) as connector:
             import os
-            schema_name = schema or os.getenv("POSTGRES_SCHEMA") or os.getenv("SNOWFLAKE_SCHEMA", "public")
+            # Platform-aware schema resolution:
+            # - For Snowflake, require explicit schema via argument or SNOWFLAKE_SCHEMA.
+            # - For other platforms (e.g., Postgres), default to POSTGRES_SCHEMA or "public".
+            if str(platform).lower() == "snowflake":
+                schema_name = schema or os.getenv("SNOWFLAKE_SCHEMA")
+                if not schema_name:
+                    raise ValueError(
+                        "Schema is required for Snowflake in --views-only mode. "
+                        "Provide --schema or set SNOWFLAKE_SCHEMA."
+                    )
+            else:
+                schema_name = schema or os.getenv("POSTGRES_SCHEMA") or "public"
             views_result = workflow._create_views(connector, platform, schema_name)
         views_created = views_result["created"]
         views_failed = views_result["failed"]
