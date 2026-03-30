@@ -2,7 +2,7 @@
 
 This guide provides step-by-step instructions for setting up and running the e-commerce data warehouse project.
 
-> **Supported Platforms:** Currently Snowflake. BigQuery, Redshift, and Databricks connectors are planned.
+> **Supported Platforms:** Snowflake and PostgreSQL. BigQuery, Redshift, and Databricks connectors are planned.
 
 ## 📋 Prerequisites
 
@@ -15,7 +15,7 @@ This guide provides step-by-step instructions for setting up and running the e-c
 
 ### 2. Data Warehouse Account
 
-#### Currently Supported: Snowflake
+#### Option A: Snowflake
 
 - Active Snowflake account
 - User with appropriate privileges (CREATE DATABASE, CREATE SCHEMA, CREATE TABLE)
@@ -23,9 +23,19 @@ This guide provides step-by-step instructions for setting up and running the e-c
 - Note your account details:
   - Account identifier
   - Username
-  - Password
+  - Password / private key
   - Warehouse name
   - Role name
+
+#### Option B: PostgreSQL (default in `.dwh.yaml`)
+
+- PostgreSQL 13+ instance (local or remote)
+- User with CREATE TABLE, INSERT, SELECT privileges on the target database
+- Note your connection details:
+  - Host and port (default: `localhost:5432`)
+  - Username and password
+  - Database name
+  - Schema name
 
 ### 3. Development Tools
 
@@ -115,15 +125,35 @@ dwh config show
 
 Supported platforms (shorthand / full name):
 
+- `pg` / `postgres` - PostgreSQL *(default — set in `.dwh.yaml`)*
 - `sf` / `snowflake` - Snowflake Data Cloud
-- `bq` / `bigquery` - Google BigQuery
-- `rs` / `redshift` - Amazon Redshift
-- `db` / `databricks` - Databricks
+- `bq` / `bigquery` - Google BigQuery *(planned)*
+- `rs` / `redshift` - Amazon Redshift *(planned)*
+- `db` / `databricks` - Databricks *(planned)*
 
 #### Add Your Credentials to .env
 
+**PostgreSQL (default):**
+
 ```bash
-# DWH Platform Selection (use shorthand or full name)
+# DWH Platform Selection
+DWH_PLATFORM=pg
+
+# PostgreSQL Connection Details
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
+POSTGRES_DATABASE=ecommerce_db
+POSTGRES_SCHEMA=ecommerce_dwh
+
+LOG_LEVEL=INFO
+```
+
+**Snowflake:**
+
+```bash
+# DWH Platform Selection
 DWH_PLATFORM=snowflake
 
 # Snowflake Connection Details
@@ -201,9 +231,9 @@ source venv/bin/activate && dwh create-and-load --drop-existing
 
 This command will:
 
-1. ✅ Test Snowflake connection
+1. ✅ Test connection
 2. 📊 Use configured database and schema
-3. 🏛️ Create all 20 tables (drops existing if any)
+3. 🏛️ Create all 23 tables (drops existing if any)
 4. 📈 Generate synthetic test data
 5. 📥 Load data into tables
 6. ✔️ Validate data integrity
@@ -212,14 +242,14 @@ This command will:
 
 ```text
 ✅ Setup Tables completed successfully!
-   Tables: 20 created, 0 already existed
-   Foreign Keys: 34 applied
+   Tables: 23 created, 0 already existed
+   Foreign Keys: 38 applied
 
 ✅ Data generation complete!
    Output: outputs/initial_data
 
 ✅ Data loading complete!
-   Tables loaded: 20
+   Tables loaded: 23
    Total rows: ~25,000
 ```
 
