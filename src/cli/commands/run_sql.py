@@ -20,15 +20,19 @@ def run_sql_command(
     verbose: bool = False
 ) -> bool:
     """
-    Execute a SQL file against Snowflake.
-    
+    Execute a SQL file against the configured DWH platform (Snowflake or PostgreSQL).
+
+    The target platform is resolved via get_dwh_platform() and the appropriate
+    connector is used automatically. For PostgreSQL, a commit is issued after all
+    statements succeed so DDL changes are persisted.
+
     Splits on semicolons and executes each statement.
     Skips empty statements and comments-only blocks.
-    
+
     Args:
         sql_file: Path to the .sql file
         verbose: Show each statement before executing
-        
+
     Returns:
         True if all statements succeeded
     """
