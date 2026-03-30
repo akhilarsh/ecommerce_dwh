@@ -60,7 +60,11 @@ class FactInventorySnapshotsGenerator(BaseEntityGenerator):
             # Generate for date range
             if date_keys:
                 # Filter to valid YYYYMMDD keys (8-digit integers) and take last N days
-                valid_date_keys = [dk for dk in date_keys if 19000101 <= dk <= 99991231]
+                valid_date_keys = [
+                    dk
+                    for dk in date_keys
+                    if 19000101 <= dk <= 99991231 and len(str(dk)) == 8
+                ]
                 selected_keys = sorted(valid_date_keys)[-days:]
                 dates_to_process = [key_to_date(dk) for dk in selected_keys]
             else:
