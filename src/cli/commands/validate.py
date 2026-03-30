@@ -117,7 +117,7 @@ def validate_command(
             fk_valid = True
             if check_fk and found_tables:
                 console.print("\n[bold]Checking foreign keys...[/bold]\n")
-                fk_valid = check_foreign_keys(connector, schema, verbose)
+                fk_valid = check_foreign_keys(connector, schema, platform, verbose)
             
             # Check data if requested
             data_valid = True
@@ -169,6 +169,7 @@ def status_command(verbose: bool = False) -> None:
 
         with connector:
             is_snowflake = platform in ("sf", "snowflake")
+            database = schema = None
 
             if is_snowflake:
                 result = connector.execute_query(
@@ -251,34 +252,62 @@ def status_command(verbose: bool = False) -> None:
         logger.error(f"Status check failed: {e}")
 
 
-def check_foreign_keys(connector: BaseConnector, schema: str, verbose: bool = False) -> bool:
+def check_foreign_keys(connector: BaseConnector, schema: str, platform: str, verbose: bool = False) -> bool:
     """
     Check foreign key constraints.
-    
+
+    Uses platform-specific queries:
+    - Snowflake: INFORMATION_SCHEMA with UPPER() and REFERENTIAL_CONSTRAINTS
+    - PostgreSQL: information_schema with pg_catalog for referenced table lookup
+
     Args:
-        connector: Snowflake connector
+        connector: DWH connector
         schema: Schema name
+        platform: DWH platform identifier (e.g. "sf", "pg")
         verbose: Enable verbose output
-        
+
     Returns:
         True if all FKs are valid
     """
-    # Query to get foreign key constraints
-    fk_query = f"""
-        SELECT 
-            tc.TABLE_NAME,
-            tc.CONSTRAINT_NAME,
-            kcu.COLUMN_NAME,
-            rc.TABLE_NAME as REFERENCED_TABLE
-        FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu 
-            ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
-        LEFT JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
-            ON tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-        WHERE tc.TABLE_SCHEMA = UPPER('{schema}')
-        AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
-        ORDER BY tc.TABLE_NAME
-    """
+    is_snowflake = platform in ("sf", "snowflake")
+
+    if is_snowflake:
+        fk_query = f"""
+            SELECT
+                tc.TABLE_NAME,
+                tc.CONSTRAINT_NAME,
+                kcu.COLUMN_NAME,
+                rc.TABLE_NAME as REFERENCED_TABLE
+            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+            JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+                ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+            LEFT JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+                ON tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+            WHERE tc.TABLE_SCHEMA = UPPER('{schema}')
+            AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
+            ORDER BY tc.TABLE_NAME
+        """
+    else:
+        fk_query = f"""
+            SELECT
+                tc.table_name,
+                tc.constraint_name,
+                kcu.column_name,
+                ccu.table_name AS referenced_table
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.referential_constraints rcon
+                ON tc.constraint_name = rcon.constraint_name
+                AND tc.table_schema = rcon.constraint_schema
+            JOIN information_schema.constraint_column_usage ccu
+                ON rcon.unique_constraint_name = ccu.constraint_name
+                AND rcon.unique_constraint_schema = ccu.constraint_schema
+            WHERE tc.table_schema = '{schema}'
+            AND tc.constraint_type = 'FOREIGN KEY'
+            ORDER BY tc.table_name
+        """
     
     try:
         result = connector.execute_query(fk_query)

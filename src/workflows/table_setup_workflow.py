@@ -212,7 +212,7 @@ class TableSetupWorkflow(BaseWorkflow):
                 
                 # Stage 7: Create views
                 logger.info("\n[7/7] Creating views...")
-                views_result = self._create_views(connector, platform, creator.schema_name)
+                views_result = self.create_views(connector, platform, creator.schema_name)
                 details["views_created"] = views_result["created"]
                 details["views_failed"] = views_result["failed"]
                 details["views_errors"] = views_result["errors"]
@@ -293,11 +293,14 @@ class TableSetupWorkflow(BaseWorkflow):
         self._log_end(result)
         return result
     
-    def _create_views(self, connector, platform: str, schema: str) -> Dict[str, Any]:
+    def create_views(self, connector, platform: str, schema: str) -> Dict[str, Any]:
         """
         Create views for the configured platform.
 
         Reads the platform-specific view SQL file and executes each statement.
+        For PostgreSQL, sets the search_path to ``schema`` before executing so
+        that views land in the correct schema.  For Snowflake, issues
+        ``USE SCHEMA`` to point the session at the requested schema.
         Non-fatal: view failures are logged but do not abort the workflow.
         """
         import re
@@ -313,12 +316,25 @@ class TableSetupWorkflow(BaseWorkflow):
             logger.info(f"No view SQL files found in {views_dir}, skipping view creation")
             return result
 
+        # Set the target schema context before creating views
+        try:
+            if platform in ("pg", "postgres", "postgresql"):
+                import psycopg2.sql as _sql
+                stmt = _sql.SQL("SET search_path TO {schema}, public").format(
+                    schema=_sql.Identifier(schema)
+                )
+                connector.execute_query(stmt.as_string(connector.connection))
+            else:
+                connector.execute_query(f"USE SCHEMA {schema}")
+        except Exception as e:
+            logger.warning(f"Could not set schema context to '{schema}': {e}")
+
         for view_file in view_files:
-            sql = view_file.read_text().strip().rstrip(";")
-            match = re.search(r"VIEW\s+\S+\.(\w+)", sql, re.IGNORECASE)
+            sql_text = view_file.read_text().strip().rstrip(";")
+            match = re.search(r"VIEW\s+\S+\.(\w+)", sql_text, re.IGNORECASE)
             view_name = match.group(1) if match else view_file.stem
             try:
-                connector.execute_query(sql)
+                connector.execute_query(sql_text)
                 if platform in ("pg", "postgres", "postgresql"):
                     connector.commit()
                 result["created"] += 1

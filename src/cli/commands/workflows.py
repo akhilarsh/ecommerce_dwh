@@ -75,7 +75,7 @@ def setup_tables_command(
                     )
             else:
                 schema_name = schema or os.getenv("POSTGRES_SCHEMA") or "public"
-            views_result = workflow._create_views(connector, platform, schema_name)
+            views_result = workflow.create_views(connector, platform, schema_name)
         views_created = views_result["created"]
         views_failed = views_result["failed"]
         if views_created:
