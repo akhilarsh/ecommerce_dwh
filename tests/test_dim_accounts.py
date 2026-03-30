@@ -1,5 +1,5 @@
 """
-Tests for dim_accounts and bridge_account_customers tables.
+Tests for dim_accounts, dim_customer_loyalty, and bridge_account_customers tables.
 
 Covers model validation, data generation, and referential integrity.
 """
@@ -10,10 +10,12 @@ from datetime import date
 from src.models.dimension_tables.dim_accounts import DimAccounts
 from src.models.bridge_tables.bridge_account_customers import BridgeAccountCustomers
 from src.models.dimension_tables.dim_customers import DimCustomers
+from src.models.dimension_tables.dim_customer_loyalty import DimCustomerLoyalty
 from src.data_generators.config import load_config
 from src.data_generators.entities.dim_accounts import DimAccountsGenerator
 from src.data_generators.entities.bridge_account_customers import BridgeAccountCustomersGenerator
 from src.data_generators.entities.dim_customers import DimCustomersGenerator
+from src.data_generators.entities.dim_customer_loyalty import DimCustomerLoyaltyGenerator
 
 
 @pytest.fixture(scope="module")
@@ -32,22 +34,29 @@ def accounts_data(config):
 
 
 @pytest.fixture(scope="module")
-def customers_data(config, accounts_data):
+def customers_data(config):
     gen = DimCustomersGenerator(config)
+    return gen.generate(count=50, start_key=1)
+
+
+@pytest.fixture(scope="module")
+def loyalty_data(config, customers_data, accounts_data):
+    gen = DimCustomerLoyaltyGenerator(config)
     return gen.generate(
-        count=50,
+        customer_keys=customers_data.surrogate_keys,
         start_key=1,
         account_keys=accounts_data.surrogate_keys
     )
 
 
 @pytest.fixture(scope="module")
-def bridge_data(config, accounts_data, customers_data):
+def bridge_data(config, accounts_data, customers_data, loyalty_data):
     acct_cust_map = {}
-    for _, row in customers_data.data.iterrows():
-        ak = int(row["account_key"])
-        ck = int(row["customer_key"])
-        acct_cust_map.setdefault(ak, []).append(ck)
+    for _, row in loyalty_data.data.iterrows():
+        if row["account_key"] is not None and str(row["account_key"]) != "nan":
+            ak = int(row["account_key"])
+            ck = int(row["customer_key"])
+            acct_cust_map.setdefault(ak, []).append(ck)
 
     gen = BridgeAccountCustomersGenerator(config)
     return gen.generate(start_key=1, account_customer_map=acct_cust_map)
@@ -138,21 +147,71 @@ class TestBridgeAccountCustomersModel:
             assert col in col_names
 
 
-class TestDimCustomersAccountFK:
-    def test_has_account_key_column(self):
-        table = DimCustomers()
-        col_names = [c.name for c in table.define_columns()]
-        assert "account_key" in col_names
+class TestDimCustomerLoyaltyModel:
+    def test_table_name(self):
+        table = DimCustomerLoyalty()
+        assert table.table_name == "dim_customer_loyalty"
 
-    def test_has_account_fk(self):
-        table = DimCustomers()
+    def test_primary_key(self):
+        table = DimCustomerLoyalty()
+        assert table.primary_key == ["loyalty_key"]
+
+    def test_foreign_keys(self):
+        table = DimCustomerLoyalty()
         fk_targets = {fk.reference_table for fk in table.foreign_keys}
+        assert "dim_customers" in fk_targets
+        assert "dim_loyalty_tiers" in fk_targets
         assert "dim_accounts" in fk_targets
 
     def test_account_key_is_nullable(self):
-        table = DimCustomers()
+        table = DimCustomerLoyalty()
         acct_col = [c for c in table.define_columns() if c.name == "account_key"][0]
         assert acct_col.nullable is True
+
+    def test_has_scd2_columns(self):
+        table = DimCustomerLoyalty()
+        col_names = [c.name for c in table.define_columns()]
+        for col in ["effective_date", "end_date", "is_current"]:
+            assert col in col_names
+
+    def test_validate_passes(self):
+        table = DimCustomerLoyalty()
+        table.validate()
+
+
+class TestDimCustomersModel:
+    def test_has_no_account_key(self):
+        """account_key moved to dim_customer_loyalty."""
+        table = DimCustomers()
+        col_names = [c.name for c in table.define_columns()]
+        assert "account_key" not in col_names
+
+    def test_has_no_loyalty_columns(self):
+        """Loyalty columns moved to dim_customer_loyalty."""
+        table = DimCustomers()
+        col_names = [c.name for c in table.define_columns()]
+        assert "loyalty_program_member" not in col_names
+        assert "loyalty_tier_key" not in col_names
+        assert "loyalty_points_balance" not in col_names
+
+    def test_has_no_address_columns(self):
+        """Address columns moved to dim_customer_address."""
+        table = DimCustomers()
+        col_names = [c.name for c in table.define_columns()]
+        assert "address_line1" not in col_names
+        assert "city" not in col_names
+
+    def test_has_profile_columns(self):
+        table = DimCustomers()
+        col_names = [c.name for c in table.define_columns()]
+        for col in ["customer_key", "customer_id", "first_name", "last_name",
+                    "email", "segment_key", "preferred_channel", "is_active"]:
+            assert col in col_names
+
+    def test_fk_only_to_segments(self):
+        table = DimCustomers()
+        fk_targets = {fk.reference_table for fk in table.foreign_keys}
+        assert fk_targets == {"dim_customer_segments"}
 
 
 # ============================================================================
@@ -207,9 +266,40 @@ class TestDimAccountsGenerator:
         assert result.surrogate_keys == []
 
 
+class TestDimCustomerLoyaltyGenerator:
+    def test_generates_one_per_customer(self, loyalty_data, customers_data):
+        assert len(loyalty_data.data) == len(customers_data.data)
+
+    def test_has_account_key_column(self, loyalty_data):
+        assert "account_key" in loyalty_data.data.columns
+
+    def test_account_keys_reference_valid_accounts(self, loyalty_data, accounts_data):
+        valid_acct_keys = set(accounts_data.surrogate_keys)
+        actual_keys = {int(k) for k in loyalty_data.data["account_key"].dropna().unique()}
+        orphans = actual_keys - valid_acct_keys
+        assert len(orphans) == 0
+
+    def test_loyalty_program_flag(self, loyalty_data):
+        count = len(loyalty_data.data)
+        members = loyalty_data.data["loyalty_program_member"].sum()
+        # ~60% should be members
+        assert 0.3 * count < members < 0.9 * count
+
+    def test_no_account_keys_when_none_provided(self, config):
+        gen = DimCustomerLoyaltyGenerator(config)
+        result = gen.generate(customer_keys=[1, 2, 3], start_key=1, account_keys=None)
+        assert result.data["account_key"].isna().all()
+
+    def test_empty_returns_empty(self, config):
+        gen = DimCustomerLoyaltyGenerator(config)
+        result = gen.generate(customer_keys=[], start_key=1)
+        assert len(result.data) == 0
+
+
 class TestBridgeAccountCustomersGenerator:
-    def test_generates_one_row_per_customer(self, bridge_data, customers_data):
-        assert len(bridge_data.data) == len(customers_data.data)
+    def test_generates_one_row_per_customer(self, bridge_data, loyalty_data):
+        valid_count = loyalty_data.data["account_key"].notna().sum()
+        assert len(bridge_data.data) == valid_count
 
     def test_first_customer_per_account_is_owner(self, bridge_data):
         df = bridge_data.data
@@ -243,20 +333,3 @@ class TestBridgeAccountCustomersGenerator:
         valid_cust_keys = set(customers_data.surrogate_keys)
         orphans = bridge_cust_keys - valid_cust_keys
         assert len(orphans) == 0, f"Orphan customer keys: {orphans}"
-
-
-class TestDimCustomersAccountKeyGeneration:
-    def test_customers_have_account_key(self, customers_data):
-        assert "account_key" in customers_data.data.columns
-        assert customers_data.data["account_key"].notna().all()
-
-    def test_account_keys_reference_valid_accounts(self, customers_data, accounts_data):
-        cust_acct_keys = set(customers_data.data["account_key"].unique())
-        valid_acct_keys = set(accounts_data.surrogate_keys)
-        orphans = cust_acct_keys - valid_acct_keys
-        assert len(orphans) == 0
-
-    def test_customers_without_account_keys_get_none(self, config):
-        gen = DimCustomersGenerator(config)
-        result = gen.generate(count=5, start_key=1, account_keys=None)
-        assert result.data["account_key"].isna().all()

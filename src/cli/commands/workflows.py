@@ -32,6 +32,7 @@ def setup_tables_command(
     drop_existing: bool = False,
     dry_run: bool = False,
     skip_fk: bool = False,
+    views_only: bool = False,
     verbose: bool = False,
     return_result: bool = False
 ) -> Union[bool, Tuple[bool, Optional[WorkflowResult]]]:
@@ -53,10 +54,33 @@ def setup_tables_command(
     from src.workflows import TableSetupWorkflow, TableSetupConfig
     
     console.print("\n[bold]Table Setup Workflow[/bold]\n")
-    
+
+    if views_only:
+        from src.connectors import get_connector
+        from src.cli.config import get_dwh_platform
+        from src.workflows.table_setup_workflow import TableSetupWorkflow
+        platform = get_dwh_platform()
+        workflow = TableSetupWorkflow()
+        with get_connector(platform) as connector:
+            import os
+            schema_name = schema or os.getenv("POSTGRES_SCHEMA") or os.getenv("SNOWFLAKE_SCHEMA", "public")
+            views_result = workflow._create_views(connector, platform, schema_name)
+        views_created = views_result["created"]
+        views_failed = views_result["failed"]
+        if views_created:
+            console.print(f"[green]✓ Views created: {views_created}[/green]")
+        if views_failed:
+            console.print(f"[yellow]⚠ {views_failed} view(s) failed:[/yellow]")
+            for err in views_result["errors"]:
+                console.print(f"  [red]• {err}[/red]")
+        success = views_failed == 0
+        if return_result:
+            return success, None
+        return success
+
     if dry_run:
         console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]\n")
-    
+
     if drop_existing:
         console.print("[yellow]WARNING: Existing tables will be dropped![/yellow]\n")
     
@@ -89,12 +113,22 @@ def setup_tables_command(
     
     if result.success:
         console.print("[bold green]✓ Table setup completed successfully![/bold green]\n")
-        
+
         # Show details
         if result.details.get("tables_created"):
             console.print(f"[dim]Tables created: {result.details['tables_created']}[/dim]")
         if result.details.get("fks_applied"):
             console.print(f"[dim]Foreign keys applied: {result.details['fks_applied']}[/dim]")
+
+        # Show view results
+        views_created = result.details.get("views_created", 0)
+        views_failed = result.details.get("views_failed", 0)
+        if views_created:
+            console.print(f"[dim]Views created: {views_created}[/dim]")
+        if views_failed:
+            console.print(f"[yellow]⚠ {views_failed} view(s) failed to create:[/yellow]")
+            for err in result.details.get("views_errors", []):
+                console.print(f"  [red]• {err}[/red]")
     else:
         console.print(f"[bold red]✗ Table setup failed: {result.error}[/bold red]\n")
     

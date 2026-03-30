@@ -125,9 +125,12 @@ dwh load-data --batch-size=50000
 Same as generation order (dimension dependencies first):
 
 1. dim_dates, dim_time, dim_channels, etc.
-2. dim_customers, dim_products (depend on segments, categories)
-3. fact_sales, fact_inventory_snapshots, etc.
-4. bridge_order_items, bridge_product_promotions
+2. dim_products (depends on categories)
+3. dim_customers (depends on segments)
+4. dim_customer_address (depends on dim_customers)
+5. dim_customer_loyalty (depends on dim_customers, loyalty_tiers, accounts)
+6. fact_sales, fact_inventory_snapshots, etc.
+7. bridge_order_items, bridge_product_promotions
 
 ## Tests
 

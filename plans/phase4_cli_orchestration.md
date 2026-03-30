@@ -152,7 +152,7 @@ dwh load-data --table dim_customers
 
 ### Pipeline Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │                     Pipeline Orchestrator                        │
 ├──────────────────────────────────────────────────────────────────┤
@@ -213,7 +213,7 @@ else:
 
 ## Project Structure
 
-```
+```text
 src/
 ├── cli/
 │   ├── __init__.py

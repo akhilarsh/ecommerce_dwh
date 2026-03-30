@@ -156,12 +156,12 @@ class TestDimCustomersGenerator:
         assert "end_date" in data.data.columns
         assert "is_current" in data.data.columns
     
-    def test_loyalty_program_flag(self, small_config):
+    def test_has_profile_columns(self, small_config):
         gen = DimCustomersGenerator(small_config)
-        data = gen.generate(count=100)
-        # About 60% should be loyalty members
-        loyalty_count = data.data["loyalty_program_member"].sum()
-        assert 40 < loyalty_count < 80
+        data = gen.generate(count=1)
+        assert "first_name" in data.data.columns
+        assert "email" in data.data.columns
+        assert "segment_key" in data.data.columns
 
 
 # ============================================================================
@@ -191,8 +191,8 @@ class TestFactSalesGenerator:
 class TestDataGenerator:
     def test_generates_all_tables(self, result):
         all_data = result.get_all_data()
-        # 13 dimension tables + 4 fact tables + 3 bridge tables = 20
-        assert len(all_data) == 20
+        # 15 dimension tables + 4 fact tables + 3 bridge tables + 1 bridge-fact = 23
+        assert len(all_data) == 23
     
     def test_generates_dimensions(self, result):
         assert "dim_customers" in result.dimensions

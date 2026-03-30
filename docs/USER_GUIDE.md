@@ -335,6 +335,7 @@ incremental:
 ```
 
 **Override priority (highest to lowest):**
+
 1. CLI arguments (`--customers=500`)
 2. Environment variables (`DATAGEN_CUSTOMERS=500`)
 3. Default values in YAML
@@ -393,6 +394,7 @@ pytest tests/test_integration.py -v -m "snowflake_required"
 **Error:** `Connection refused` or `Account not found`
 
 **Solution:**
+
 1. Verify `.env` file has correct credentials
 2. Check account identifier format (e.g., `abc12345.us-east-1`)
 3. Verify network connectivity to Snowflake
@@ -428,6 +430,7 @@ dwh setup-tables --skip-fk
 **Error:** `Referential integrity violation`
 
 **Solution:**
+
 1. Ensure dimensions are loaded before facts
 2. Use `dwh load-data` which handles ordering automatically
 
@@ -444,12 +447,14 @@ dwh load-data --batch-size=5000
 **Error:** `DWH credentials not configured`
 
 **Solution:**
+
 1. Set up `.env` file
 2. Or run unit tests only: `pytest tests/ -m "not snowflake"`
 
 ### Log Files
 
 Check logs in the `logs/` directory:
+
 - `dwh_YYYYMMDD_HHMMSS.log` - Application logs
 - `test_run_*.log` - Test execution logs
 

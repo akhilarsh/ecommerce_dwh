@@ -61,12 +61,16 @@ def run_sql_command(
             for i, stmt in enumerate(statements, 1):
                 if verbose:
                     console.print(Panel(stmt, title=f"Statement {i}/{len(statements)}", border_style="dim"))
-                
+
                 result = connector.execute_query(stmt)
-                
+
                 rows_affected = len(result) if result else 0
                 console.print(f"  [green]✓[/green] Statement {i}: {rows_affected} row{'s' if rows_affected != 1 else ''} returned/affected")
-            
+
+            # Commit after all statements succeed (required for Postgres DDL)
+            if hasattr(connector, "commit"):
+                connector.commit()
+
             console.print(f"\n[green]✓ All {len(statements)} statement(s) executed successfully[/green]")
             return True
             

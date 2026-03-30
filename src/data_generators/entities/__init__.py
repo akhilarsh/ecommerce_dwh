@@ -20,6 +20,8 @@ from .dim_stores import DimStoresGenerator
 from .dim_employees import DimEmployeesGenerator
 from .dim_products import DimProductsGenerator
 from .dim_customers import DimCustomersGenerator
+from .dim_customer_address import DimCustomerAddressGenerator
+from .dim_customer_loyalty import DimCustomerLoyaltyGenerator
 from .dim_accounts import DimAccountsGenerator
 
 # Fact generators
@@ -51,6 +53,8 @@ __all__ = [
     "DimEmployeesGenerator",
     "DimProductsGenerator",
     "DimCustomersGenerator",
+    "DimCustomerAddressGenerator",
+    "DimCustomerLoyaltyGenerator",
     "DimAccountsGenerator",
     # Facts
     "FactSalesGenerator",

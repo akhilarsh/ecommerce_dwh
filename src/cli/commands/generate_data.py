@@ -125,7 +125,11 @@ def generate_initial_command(
         cache_path = cfg.paths.keys_cache
         gen.save_keys_to_cache(cache_path)
         console.print(f"[dim]Saved keys cache: {cache_path}[/dim]")
-        
+
+        # Refresh cache from warehouse
+        console.print("[dim]Refreshing keys cache from warehouse...[/dim]")
+        cache_keys_command(output_file=cache_path, verbose=verbose)
+
         console.print()
         logger.info(f"Initial load complete: {result.total_records} records")
         return True
@@ -244,7 +248,11 @@ def generate_incremental_command(
         # Save updated keys cache
         gen.save_keys_to_cache(cache_file)
         console.print(f"[dim]Updated keys cache: {cache_file}[/dim]")
-        
+
+        # Refresh cache from warehouse
+        console.print("[dim]Refreshing keys cache from warehouse...[/dim]")
+        cache_keys_command(output_file=cache_file, verbose=verbose)
+
         console.print()
         logger.info(f"Incremental generation complete: {result.total_records} records")
         return True
@@ -310,10 +318,12 @@ def generate_inventory_command(
         
         if cache_file:
             gen.save_keys_to_cache(cache_file)
-        
+            console.print("[dim]Refreshing keys cache from warehouse...[/dim]")
+            cache_keys_command(output_file=cache_file, verbose=verbose)
+
         console.print()
         return True
-        
+
     except Exception as e:
         console.print(f"\n[red]✗ Error generating inventory snapshot: {e}[/red]")
         logger.error(f"Inventory snapshot generation failed: {e}")
@@ -380,10 +390,12 @@ def generate_store_command(
         
         if cache_file:
             gen.save_keys_to_cache(cache_file)
-        
+            console.print("[dim]Refreshing keys cache from warehouse...[/dim]")
+            cache_keys_command(output_file=cache_file, verbose=verbose)
+
         console.print()
         return True
-        
+
     except Exception as e:
         console.print(f"\n[red]✗ Error adding new store: {e}[/red]")
         logger.error(f"New store generation failed: {e}")
@@ -453,10 +465,12 @@ def generate_promotion_command(
         
         if cache_file:
             gen.save_keys_to_cache(cache_file)
-        
+            console.print("[dim]Refreshing keys cache from warehouse...[/dim]")
+            cache_keys_command(output_file=cache_file, verbose=verbose)
+
         console.print()
         return True
-        
+
     except Exception as e:
         console.print(f"\n[red]✗ Error creating promotion: {e}[/red]")
         logger.error(f"Promotion generation failed: {e}")
@@ -472,23 +486,34 @@ def generate_promotion_command(
 
 def cache_keys_command(
     output_file: Optional[str] = None,
-    schema: str = "ECOMMERCE_DWH",
+    schema: Optional[str] = None,
     verbose: bool = False
 ) -> bool:
-    """Cache existing keys from Snowflake to a local file."""
+    """Cache existing surrogate keys from the configured warehouse to a local file."""
     try:
+        import os
+        from src.connectors import get_connector
+        from src.cli.config import get_dwh_platform
+
         cfg = load_config()
         out_file = output_file or cfg.paths.keys_cache
-        
-        console.print("\n[bold blue]Caching Keys from Snowflake[/bold blue]\n")
-        
-        from src.connectors.snowflake_connector import SnowflakeConnector
-        
+
+        platform = get_dwh_platform()
+        is_snowflake = platform in ("sf", "snowflake")
+
+        if schema is None:
+            if is_snowflake:
+                schema = os.getenv("SNOWFLAKE_SCHEMA", "ECOMMERCE_DWH")
+            else:
+                schema = os.getenv("POSTGRES_SCHEMA", "public")
+
+        console.print(f"\n[bold blue]Caching Keys from {platform.upper()}[/bold blue]\n")
+
         loader = ExistingKeysLoader()
-        
-        with SnowflakeConnector() as conn:
-            console.print("[dim]Connected to Snowflake[/dim]")
-            
+
+        with get_connector(platform) as conn:
+            console.print(f"[dim]Connected to {platform.upper()}[/dim]")
+
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),

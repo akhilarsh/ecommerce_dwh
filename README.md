@@ -202,6 +202,7 @@ The CLI supports multiple data warehouse platforms. Configure your platform usin
 3. **Global config:** `dwh config set-wh snowflake` (creates `~/.dwh/config.yaml`)
 
 Supported platforms (shorthand / full name):
+
 - `sf` / `snowflake` - Snowflake Data Cloud
 - `bq` / `bigquery` - Google BigQuery
 - `rs` / `redshift` - Amazon Redshift

@@ -91,6 +91,8 @@ All queries saved to `outputs/generated_sql/audiences`:
 
 Run queries directly in Snowflake or export results to CSV for marketing campaigns.
 
+**Note:** All queries use `dim_customers`.
+
 ```sql
 -- Example: Export high-value customers to CSV
 COPY INTO @my_stage/high_value_customers.csv

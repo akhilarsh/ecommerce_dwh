@@ -9,7 +9,7 @@ from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 
 from .base_entity import BaseEntityGenerator, GeneratedData
-from ..utils.date_keys import date_to_key
+from ..utils.date_keys import date_to_key, key_to_date
 
 
 class FactInventorySnapshotsGenerator(BaseEntityGenerator):
@@ -59,11 +59,10 @@ class FactInventorySnapshotsGenerator(BaseEntityGenerator):
         else:
             # Generate for date range
             if date_keys:
-                # Take last N days from available dates
-                dates_to_process = [
-                    date(int(str(dk)[:4]), int(str(dk)[4:6]), int(str(dk)[6:8]))
-                    for dk in sorted(date_keys)[-days:]
-                ]
+                # Filter to valid YYYYMMDD keys (8-digit integers) and take last N days
+                valid_date_keys = [dk for dk in date_keys if 19000101 <= dk <= 99991231]
+                selected_keys = sorted(valid_date_keys)[-days:]
+                dates_to_process = [key_to_date(dk) for dk in selected_keys]
             else:
                 # Generate dates from config
                 from datetime import timedelta

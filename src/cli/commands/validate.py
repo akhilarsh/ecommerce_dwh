@@ -17,7 +17,9 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from src.utils.logger import get_logger
-from src.connectors.snowflake_connector import SnowflakeConnector
+from src.connectors import get_connector
+from src.connectors.base_connector import BaseConnector
+from src.cli.config import get_dwh_platform
 from src.sql_generator.schema_manager import SchemaManager
 
 logger = get_logger(__name__)
@@ -43,10 +45,11 @@ def validate_command(
     console.print("\n[bold]Validating Table Creation...[/bold]\n")
     
     try:
-        connector = SnowflakeConnector()
+        platform = get_dwh_platform()
+        connector = get_connector(platform)
         schema_manager = SchemaManager()
         expected_tables = [t.table_name for t in schema_manager.all_tables]
-        
+
         with connector:
             # Get current database and schema
             db_result = connector.execute_query("SELECT CURRENT_DATABASE(), CURRENT_SCHEMA()")
@@ -57,16 +60,29 @@ def validate_command(
             
             # Check tables
             console.print("[bold]Checking tables...[/bold]\n")
-            
-            tables_query = f"""
-                SELECT TABLE_NAME, ROW_COUNT, BYTES
-                FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = UPPER('{schema}')
-                ORDER BY TABLE_NAME
-            """
-            
-            result = connector.execute_query(tables_query)
-            existing_tables = {row[0].lower(): {"rows": row[1], "bytes": row[2]} for row in result} if result else {}
+
+            is_snowflake = platform in ("sf", "snowflake")
+            if is_snowflake:
+                tables_query = f"""
+                    SELECT TABLE_NAME, ROW_COUNT, BYTES
+                    FROM INFORMATION_SCHEMA.TABLES
+                    WHERE TABLE_SCHEMA = UPPER('{schema}')
+                    ORDER BY TABLE_NAME
+                """
+                result = connector.execute_query(tables_query)
+                existing_tables = {row[0].lower(): {"rows": row[1], "bytes": row[2]} for row in result} if result else {}
+            else:
+                tables_query = f"""
+                    SELECT t.table_name, COALESCE(s.n_live_tup, 0), NULL
+                    FROM information_schema.tables t
+                    LEFT JOIN pg_stat_user_tables s
+                        ON s.relname = t.table_name AND s.schemaname = t.table_schema
+                    WHERE t.table_schema = '{schema}'
+                    AND t.table_type = 'BASE TABLE'
+                    ORDER BY t.table_name
+                """
+                result = connector.execute_query(tables_query)
+                existing_tables = {row[0].lower(): {"rows": row[1], "bytes": row[2]} for row in result} if result else {}
             
             # Display table status
             table = Table(title="Table Status", show_header=True)
@@ -147,70 +163,95 @@ def status_command(verbose: bool = False) -> None:
     console.print("\n[bold]Table Creation Status[/bold]\n")
     
     try:
-        connector = SnowflakeConnector()
+        platform = get_dwh_platform()
+        connector = get_connector(platform)
         schema_manager = SchemaManager()
-        
+
         with connector:
-            # Get connection info
-            result = connector.execute_query("""
-                SELECT 
-                    CURRENT_DATABASE(),
-                    CURRENT_SCHEMA(),
-                    CURRENT_WAREHOUSE(),
-                    CURRENT_ROLE()
-            """)
-            
-            if result:
-                database, schema, warehouse, role = result[0]
-                
-                # Create status tree
-                tree = Tree("[bold]Snowflake Connection[/bold]")
-                tree.add(f"Database: [cyan]{database or 'Not set'}[/cyan]")
-                tree.add(f"Schema: [cyan]{schema or 'Not set'}[/cyan]")
-                tree.add(f"Warehouse: [cyan]{warehouse or 'Not set'}[/cyan]")
-                tree.add(f"Role: [cyan]{role or 'Not set'}[/cyan]")
-                
-                console.print(tree)
-                console.print()
-            
+            is_snowflake = platform in ("sf", "snowflake")
+
+            if is_snowflake:
+                result = connector.execute_query(
+                    "SELECT CURRENT_DATABASE(), CURRENT_SCHEMA(), CURRENT_WAREHOUSE(), CURRENT_ROLE()"
+                )
+                if result:
+                    database, schema, warehouse, role = result[0]
+                    tree = Tree("[bold]Snowflake Connection[/bold]")
+                    tree.add(f"Database: [cyan]{database or 'Not set'}[/cyan]")
+                    tree.add(f"Schema: [cyan]{schema or 'Not set'}[/cyan]")
+                    tree.add(f"Warehouse: [cyan]{warehouse or 'Not set'}[/cyan]")
+                    tree.add(f"Role: [cyan]{role or 'Not set'}[/cyan]")
+                    console.print(tree)
+                    console.print()
+            else:
+                result = connector.execute_query(
+                    "SELECT current_database(), current_schema()"
+                )
+                if result:
+                    database, schema = result[0]
+                    tree = Tree("[bold]PostgreSQL Connection[/bold]")
+                    tree.add(f"Database: [cyan]{database or 'Not set'}[/cyan]")
+                    tree.add(f"Schema: [cyan]{schema or 'Not set'}[/cyan]")
+                    console.print(tree)
+                    console.print()
+
             # Get table counts
             if database and schema:
-                tables_query = f"""
-                    SELECT 
-                        COUNT(*) as table_count,
-                        COALESCE(SUM(ROW_COUNT), 0) as total_rows,
-                        COALESCE(SUM(BYTES), 0) as total_bytes
-                    FROM INFORMATION_SCHEMA.TABLES
-                    WHERE TABLE_SCHEMA = UPPER('{schema}')
-                """
-                
-                result = connector.execute_query(tables_query)
-                if result:
-                    table_count, total_rows, total_bytes = result[0]
-                    
-                    expected_tables = len(schema_manager.all_tables)
-                    
-                    # Status panel
-                    status_table = Table(show_header=False, box=None)
-                    status_table.add_column("Metric", style="dim")
-                    status_table.add_column("Value", style="bold")
-                    
-                    status_table.add_row("Expected Tables", str(expected_tables))
-                    status_table.add_row("Deployed Tables", str(table_count))
-                    status_table.add_row("Total Rows", f"{total_rows:,}")
+                if is_snowflake:
+                    tables_query = f"""
+                        SELECT
+                            COUNT(*) as table_count,
+                            COALESCE(SUM(ROW_COUNT), 0) as total_rows,
+                            COALESCE(SUM(BYTES), 0) as total_bytes
+                        FROM INFORMATION_SCHEMA.TABLES
+                        WHERE TABLE_SCHEMA = UPPER('{schema}')
+                    """
+                    result = connector.execute_query(tables_query)
+                    if result:
+                        table_count, total_rows, total_bytes = result[0]
+                    else:
+                        table_count, total_rows, total_bytes = 0, 0, 0
+                else:
+                    count_query = f"""
+                        SELECT COUNT(*)
+                        FROM information_schema.tables
+                        WHERE table_schema = '{schema}'
+                        AND table_type = 'BASE TABLE'
+                    """
+                    rows_query = f"""
+                        SELECT COALESCE(SUM(n_live_tup), 0)
+                        FROM pg_stat_user_tables
+                        WHERE schemaname = '{schema}'
+                    """
+                    count_result = connector.execute_query(count_query)
+                    rows_result = connector.execute_query(rows_query)
+                    table_count = count_result[0][0] if count_result else 0
+                    total_rows = rows_result[0][0] if rows_result else 0
+                    total_bytes = None
+
+                expected_tables = len(schema_manager.all_tables)
+
+                status_table = Table(show_header=False, box=None)
+                status_table.add_column("Metric", style="dim")
+                status_table.add_column("Value", style="bold")
+
+                status_table.add_row("Expected Tables", str(expected_tables))
+                status_table.add_row("Deployed Tables", str(table_count))
+                status_table.add_row("Total Rows", f"{total_rows:,}")
+                if total_bytes is not None:
                     status_table.add_row("Total Size", format_bytes(total_bytes))
-                    
-                    completion = (table_count / expected_tables * 100) if expected_tables > 0 else 0
-                    status_table.add_row("Completion", f"{completion:.0f}%")
-                    
-                    console.print(Panel(status_table, title="Deployment Status", border_style="blue"))
+
+                completion = (table_count / expected_tables * 100) if expected_tables > 0 else 0
+                status_table.add_row("Completion", f"{completion:.0f}%")
+
+                console.print(Panel(status_table, title="Deployment Status", border_style="blue"))
             
     except Exception as e:
         console.print(f"[red]Error getting status: {e}[/red]\n")
         logger.error(f"Status check failed: {e}")
 
 
-def check_foreign_keys(connector: SnowflakeConnector, schema: str, verbose: bool = False) -> bool:
+def check_foreign_keys(connector: BaseConnector, schema: str, verbose: bool = False) -> bool:
     """
     Check foreign key constraints.
     
@@ -266,7 +307,7 @@ def check_foreign_keys(connector: SnowflakeConnector, schema: str, verbose: bool
         return False
 
 
-def check_table_data(connector: SnowflakeConnector, schema: str, tables: list) -> bool:
+def check_table_data(connector: BaseConnector, schema: str, tables: list) -> bool:
     """
     Check for data presence in tables.
     

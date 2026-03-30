@@ -98,14 +98,14 @@ class TableSetupWorkflow(BaseWorkflow):
         try:
             # Stage 1: Connect to DWH
             platform = get_dwh_platform()
-            logger.info(f"\n[1/6] Connecting to {platform}...")
+            logger.info(f"\n[1/7] Connecting to {platform}...")
             connector = get_connector(platform)
             
             with connector:
                 stages_completed.append("connect")
                 
                 # Stage 2: Verify database and schema
-                logger.info("\n[2/6] Verifying database and schema...")
+                logger.info("\n[2/7] Verifying database and schema...")
                 creator = TableCreator(
                     connector,
                     database_name=config.database,
@@ -149,15 +149,15 @@ class TableSetupWorkflow(BaseWorkflow):
                 
                 # Stage 3: Drop existing tables if requested
                 if config.drop_existing:
-                    logger.info("\n[3/6] Dropping existing tables...")
+                    logger.info("\n[3/7] Dropping existing tables...")
                     self._drop_existing_tables(creator, existing_tables)
                     stages_completed.append("drop_existing")
                 else:
-                    logger.info("\n[3/6] Skipping drop (drop_existing=False)")
+                    logger.info("\n[3/7] Skipping drop (drop_existing=False)")
                     stages_completed.append("skip_drop")
                 
                 # Stage 4: Use database and schema
-                logger.info("\n[4/6] Setting database and schema context...")
+                logger.info("\n[4/7] Setting database and schema context...")
                 if not creator.use_database():
                     return self._create_result(
                         success=False,
@@ -178,7 +178,7 @@ class TableSetupWorkflow(BaseWorkflow):
                 stages_completed.append("set_context")
                 
                 # Stage 5: Create tables
-                logger.info("\n[5/6] Creating tables...")
+                logger.info("\n[5/7] Creating tables...")
                 tables_success = creator.create_tables()
                 stages_completed.append("create_tables")
                 
@@ -197,7 +197,7 @@ class TableSetupWorkflow(BaseWorkflow):
                 
                 # Stage 6: Apply foreign keys
                 if config.apply_foreign_keys:
-                    logger.info("\n[6/6] Applying foreign key constraints...")
+                    logger.info("\n[6/7] Applying foreign key constraints...")
                     fk_success = creator.apply_foreign_keys()
                     stages_completed.append("apply_fks")
                     
@@ -207,13 +207,23 @@ class TableSetupWorkflow(BaseWorkflow):
                     if not fk_success:
                         logger.warning(f"Some FK constraints failed: {creator.stats['constraints_failed']}")
                 else:
-                    logger.info("\n[6/6] Skipping FK constraints (apply_foreign_keys=False)")
+                    logger.info("\n[6/7] Skipping FK constraints (apply_foreign_keys=False)")
                     stages_completed.append("skip_fks")
                 
+                # Stage 7: Create views
+                logger.info("\n[7/7] Creating views...")
+                views_result = self._create_views(connector, platform, creator.schema_name)
+                details["views_created"] = views_result["created"]
+                details["views_failed"] = views_result["failed"]
+                details["views_errors"] = views_result["errors"]
+                if views_result["failed"]:
+                    logger.error(f"Some views failed to create: {views_result['errors']}")
+                stages_completed.append("create_views")
+
                 # Validate creation
                 validation = creator.validate_creation()
                 details["validation"] = validation
-                
+
                 result = self._create_result(
                     success=True,
                     started_at=started_at,
@@ -283,6 +293,48 @@ class TableSetupWorkflow(BaseWorkflow):
         self._log_end(result)
         return result
     
+    def _create_views(self, connector, platform: str, schema: str) -> Dict[str, Any]:
+        """
+        Create views for the configured platform.
+
+        Reads the platform-specific view SQL file and executes each statement.
+        Non-fatal: view failures are logged but do not abort the workflow.
+        """
+        import re
+        from pathlib import Path
+
+        platform_dir = "pg" if platform in ("pg", "postgres", "postgresql") else "snowflake"
+        views_dir = Path(__file__).parent.parent.parent / "outputs" / "generated_sql" / platform_dir
+        view_files = sorted(views_dir.glob("*view*.sql"))
+
+        result: Dict[str, Any] = {"created": 0, "failed": 0, "errors": []}
+
+        if not view_files:
+            logger.info(f"No view SQL files found in {views_dir}, skipping view creation")
+            return result
+
+        for view_file in view_files:
+            sql = view_file.read_text().strip().rstrip(";")
+            match = re.search(r"VIEW\s+\S+\.(\w+)", sql, re.IGNORECASE)
+            view_name = match.group(1) if match else view_file.stem
+            try:
+                connector.execute_query(sql)
+                if platform in ("pg", "postgres", "postgresql"):
+                    connector.commit()
+                result["created"] += 1
+                logger.info(f"Created view: {view_name}")
+            except Exception as e:
+                result["failed"] += 1
+                result["errors"].append(f"{view_name}: {e}")
+                logger.error(f"Failed to create view {view_name}: {e}")
+                if platform in ("pg", "postgres", "postgresql"):
+                    try:
+                        connector.rollback()
+                    except Exception:
+                        pass
+
+        return result
+
     def _drop_existing_tables(
         self,
         creator: TableCreator,

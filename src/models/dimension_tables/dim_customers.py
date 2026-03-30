@@ -1,7 +1,8 @@
 """
 Customer Dimension Table Model.
 
-Customer master data with SCD Type 2 for tracking history of customer changes.
+Customer identity and demographic data with SCD Type 2 for tracking history.
+Address data is in dim_customer_address; loyalty data is in dim_customer_loyalty.
 """
 
 from typing import List
@@ -9,12 +10,12 @@ from ..base_table import BaseTable, Column, ForeignKey
 
 
 class DimCustomers(BaseTable):
-    """Customer dimension with SCD Type 2."""
-    
+    """Customer profile dimension with SCD Type 2."""
+
     table_name = "dim_customers"
     primary_key = ["customer_key"]
-    comment = "Customer master data with historical tracking (SCD Type 2)"
-    
+    comment = "Customer identity and demographics with historical tracking (SCD Type 2)"
+
     def define_columns(self) -> List[Column]:
         """Define customer dimension columns."""
         return [
@@ -76,90 +77,16 @@ class DimCustomers(BaseTable):
                 comment="M, F, Other, Prefer not to say"
             ),
             Column(
-                "address_line1",
-                "VARCHAR",
-                length=500,
-                comment="Street address line 1"
-            ),
-            Column(
-                "address_line2",
-                "VARCHAR",
-                length=500,
-                comment="Street address line 2"
-            ),
-            Column(
-                "city",
-                "VARCHAR",
-                length=100,
-                comment="City"
-            ),
-            Column(
-                "state",
-                "VARCHAR",
-                length=50,
-                comment="State/Province"
-            ),
-            Column(
-                "postal_code",
-                "VARCHAR",
-                length=20,
-                comment="ZIP/Postal code"
-            ),
-            Column(
-                "country",
-                "VARCHAR",
-                length=100,
-                comment="Country"
-            ),
-            Column(
-                "registration_date",
-                "DATE",
-                nullable=False,
-                comment="Customer registration date"
-            ),
-            Column(
                 "segment_key",
                 "NUMBER",
                 precision=38,
                 comment="FK to dim_customer_segments"
             ),
             Column(
-                "account_key",
-                "NUMBER",
-                precision=38,
-                comment="FK to dim_accounts (primary account)"
-            ),
-            Column(
                 "preferred_channel",
                 "VARCHAR",
                 length=50,
                 comment="Preferred shopping channel"
-            ),
-            Column(
-                "loyalty_program_member",
-                "BOOLEAN",
-                nullable=False,
-                default="FALSE",
-                comment="Member of loyalty program"
-            ),
-            Column(
-                "loyalty_tier_key",
-                "NUMBER",
-                precision=38,
-                comment="FK to dim_loyalty_tiers (NULL for non-members)"
-            ),
-            Column(
-                "loyalty_points_balance",
-                "NUMBER",
-                precision=10,
-                comment="Current loyalty points balance"
-            ),
-            Column(
-                "lifetime_value",
-                "NUMBER",
-                precision=12,
-                scale=2,
-                comment="Total lifetime purchase value"
             ),
             Column(
                 "is_active",
@@ -199,21 +126,11 @@ class DimCustomers(BaseTable):
                 comment="Last update timestamp"
             ),
         ]
-    
+
     foreign_keys = [
         ForeignKey(
             column="segment_key",
             reference_table="dim_customer_segments",
             reference_column="segment_key"
-        ),
-        ForeignKey(
-            column="account_key",
-            reference_table="dim_accounts",
-            reference_column="account_key"
-        ),
-        ForeignKey(
-            column="loyalty_tier_key",
-            reference_table="dim_loyalty_tiers",
-            reference_column="tier_key"
         ),
     ]

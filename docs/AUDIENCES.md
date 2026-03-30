@@ -5,6 +5,7 @@ Pre-built SQL queries for customer segmentation and marketing audience building.
 ## Overview
 
 The E-Commerce Data Warehouse includes 12 analytics queries designed for:
+
 - **Customer Scoring** - RFM analysis, LTV tiers, channel preferences
 - **Marketing Audiences** - Targetable segments for campaigns
 
@@ -88,6 +89,7 @@ preferred_day_of_week, preferred_time_of_day, purchase_frequency_days
 Customers with top LTV scores AND high RFM scores. Ideal for VIP programs and exclusive offers.
 
 **Criteria:**
+
 - LTV tier = Platinum or Gold
 - RFM segment = Champions or Loyal Customers
 
@@ -98,6 +100,7 @@ Customers with top LTV scores AND high RFM scores. Ideal for VIP programs and ex
 Previously active customers at risk of churning. Target with win-back campaigns.
 
 **Criteria:**
+
 - No purchase in last 90 days
 - Had 3+ purchases before going inactive
 - Previously had monthly purchase frequency
@@ -109,6 +112,7 @@ Previously active customers at risk of churning. Target with win-back campaigns.
 Recently acquired customers. Target with onboarding sequences and second-purchase incentives.
 
 **Criteria:**
+
 - First purchase within last 30 days
 - Only 1-2 orders total
 
@@ -127,6 +131,7 @@ Customers by loyalty program tier. Useful for tier-specific promotions.
 Customers who frequently purchase during promotions. Target with promotional campaigns.
 
 **Criteria:**
+
 - 50%+ of orders used a promotion
 - Minimum 3 promotional purchases
 
@@ -137,6 +142,7 @@ Customers who frequently purchase during promotions. Target with promotional cam
 Customers who purchase on holidays (Black Friday, Christmas, etc.). Target with holiday-specific campaigns.
 
 **Criteria:**
+
 - Made purchases on `is_holiday = TRUE` dates
 - Shows seasonal purchase patterns
 
@@ -159,6 +165,7 @@ electronics_spend, apparel_spend, home_spend
 Customers whose store interactions led to purchases. Identifies high-converting in-store shoppers.
 
 **Criteria:**
+
 - Had `fact_customer_interactions` with `led_to_purchase = TRUE`
 - Conversion rate above average
 

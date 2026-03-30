@@ -24,7 +24,6 @@ Configuration priority:
     3. Global config (~/.dwh/config.yaml)
 """
 
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -371,12 +370,11 @@ def cache_keys(
     schema: Optional[str]
 ):
     """Cache existing surrogate keys from Snowflake for incremental generation."""
-    dwh = require_dwh_platform(ctx)
+    require_dwh_platform(ctx)
     from src.cli.commands.generate_data import cache_keys_command
-    resolved_schema = schema or os.getenv("SNOWFLAKE_SCHEMA", "ECOMMERCE_DWH")
     success = cache_keys_command(
         output_file=output,
-        schema=resolved_schema,
+        schema=schema,
         verbose=ctx.obj.get("verbose", False)
     )
     sys.exit(0 if success else 1)
@@ -490,6 +488,7 @@ def status(ctx: click.Context):
 @click.option("--drop-existing", is_flag=True, help="Drop and recreate existing tables (required if tables exist)")
 @click.option("--dry-run", is_flag=True, help="Show what would be done without executing")
 @click.option("--skip-fk", is_flag=True, help="Skip FK constraints (required if tables exist and not dropping)")
+@click.option("--views-only", is_flag=True, help="Only create/replace views, skip table and FK creation")
 @click.pass_context
 def setup_tables(
     ctx: click.Context,
@@ -497,11 +496,12 @@ def setup_tables(
     schema: Optional[str],
     drop_existing: bool,
     dry_run: bool,
-    skip_fk: bool
+    skip_fk: bool,
+    views_only: bool
 ):
     """
     Create all tables in the data warehouse (one-time setup workflow).
-    
+
     If tables already exist, you must specify either --drop-existing or --skip-fk.
     """
     from src.cli.commands.workflows import setup_tables_command
@@ -512,6 +512,7 @@ def setup_tables(
         drop_existing=drop_existing,
         dry_run=dry_run,
         skip_fk=skip_fk,
+        views_only=views_only,
         verbose=ctx.obj.get("verbose", False)
     )
     sys.exit(0 if success else 1)
