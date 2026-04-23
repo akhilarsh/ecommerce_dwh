@@ -70,6 +70,16 @@ def _map_type(
     if dt == "FLOAT":
         return "DOUBLE PRECISION"
 
+    # Snowflake semi-structured / geospatial / binary types → PG equivalents
+    if dt in ("VARIANT", "OBJECT"):
+        return "JSONB"
+    if dt == "ARRAY":
+        return "JSONB"
+    if dt in ("GEOGRAPHY", "GEOMETRY"):
+        return "TEXT"
+    if dt in ("BINARY", "VARBINARY"):
+        return "BYTEA"
+
     return dt
 
 

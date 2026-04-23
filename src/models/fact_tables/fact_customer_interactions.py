@@ -130,6 +130,21 @@ class FactCustomerInteractions(BaseTable):
                 nullable=False,
                 comment="Record creation timestamp"
             ),
+            Column(
+                "event_properties",
+                "VARIANT",
+                comment="Raw event properties as semi-structured JSON (VARIANT)"
+            ),
+            Column(
+                "geo_location",
+                "GEOGRAPHY",
+                comment="Interaction geospatial location (GEOGRAPHY)"
+            ),
+            Column(
+                "raw_payload",
+                "BINARY",
+                comment="Raw binary event payload (BINARY)"
+            ),
         ]
     
     foreign_keys = [

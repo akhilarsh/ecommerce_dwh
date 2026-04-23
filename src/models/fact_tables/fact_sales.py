@@ -168,6 +168,16 @@ class FactSales(BaseTable):
                 nullable=False,
                 comment="Record creation timestamp"
             ),
+            Column(
+                "order_tags",
+                "ARRAY",
+                comment="Order tags/labels as semi-structured array (ARRAY)"
+            ),
+            Column(
+                "shipment_metadata",
+                "OBJECT",
+                comment="Raw shipment metadata key-value object (OBJECT)"
+            ),
         ]
     
     foreign_keys = [

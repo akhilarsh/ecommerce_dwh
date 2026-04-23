@@ -4,6 +4,8 @@ Fact generator for fact_customer_interactions.
 Generates customer interaction/touchpoint records.
 """
 
+import json
+import os
 import random
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional
@@ -32,6 +34,9 @@ class FactCustomerInteractionsGenerator(BaseEntityGenerator):
     ]
     
     DEVICES = ["Desktop", "Mobile", "Tablet", "In-Store Kiosk", "Phone"]
+
+    _WORLD_LON_RANGE = (-180.0, 180.0)
+    _WORLD_LAT_RANGE = (-90.0, 90.0)
     
     def generate(
         self,
@@ -159,6 +164,17 @@ class FactCustomerInteractionsGenerator(BaseEntityGenerator):
                 "duration_seconds": duration_seconds,
                 "is_converted": sale_key is not None,
                 "created_at": now,
+                "event_properties": json.dumps({
+                    "ab_variant": random.choice(["control", "variant_a", "variant_b"]),
+                    "referrer": random.choice(["google", "email", "direct", "social", None]),
+                    "viewport_width": random.randint(320, 2560),
+                    "scroll_depth": round(random.uniform(0.0, 1.0), 2),
+                }),
+                "geo_location": (
+                    f"POINT({round(random.uniform(*self._WORLD_LON_RANGE), 4)} "
+                    f"{round(random.uniform(*self._WORLD_LAT_RANGE), 4)})"
+                ),
+                "raw_payload": None,
             }
             records.append(record)
         

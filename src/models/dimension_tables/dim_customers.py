@@ -125,6 +125,16 @@ class DimCustomers(BaseTable):
                 "TIMESTAMP_NTZ",
                 comment="Last update timestamp"
             ),
+            Column(
+                "customer_preferences",
+                "VARIANT",
+                comment="Semi-structured customer preferences (VARIANT)"
+            ),
+            Column(
+                "home_location",
+                "GEOGRAPHY",
+                comment="Customer home geospatial location (GEOGRAPHY)"
+            ),
         ]
 
     foreign_keys = [

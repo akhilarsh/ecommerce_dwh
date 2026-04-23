@@ -198,6 +198,8 @@ erDiagram
         BOOLEAN is_current
         TIMESTAMP_NTZ created_at
         TIMESTAMP_NTZ updated_at
+        VARIANT customer_preferences
+        GEOGRAPHY home_location
     }
 
     dim_customer_address {
@@ -294,7 +296,8 @@ erDiagram
         VARCHAR order_status
         BOOLEAN is_online
         TIMESTAMP_NTZ created_at
-        TIMESTAMP_NTZ updated_at
+        ARRAY order_tags
+        OBJECT shipment_metadata
     }
 
     fact_inventory_snapshots {
@@ -329,6 +332,9 @@ erDiagram
         NUMBER duration_seconds
         BOOLEAN is_converted
         TIMESTAMP_NTZ created_at
+        VARIANT event_properties
+        GEOGRAPHY geo_location
+        BINARY raw_payload
     }
 
     fact_loyalty_points {
@@ -518,7 +524,7 @@ erDiagram
 
 | Table | PK | FK | Relationship |
 |-------|----|----|--------------|
-| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments` | Customer identity & demographics. SCD Type 2 - tracks changes via `effective_date`, `end_date`, `is_current`. Contains name, email, phone, birth_date, gender, preferred_channel. |
+| __dim_customers__ | `customer_key` | `segment_key` → `dim_customer_segments` | Customer identity & demographics. SCD Type 2 - tracks changes via `effective_date`, `end_date`, `is_current`. Contains name, email, phone, birth_date, gender, preferred_channel.|
 | __dim_customer_address__ | `address_key` | `customer_key` → `dim_customers` | Customer addresses. SCD Type 2 - tracks address changes over time. Contains street, city, state, postal_code, country, registration_date. |
 | __dim_customer_loyalty__ | `loyalty_key` | `customer_key` → `dim_customers`, `account_key` → `dim_accounts`, `loyalty_tier_key` → `dim_loyalty_tiers` | Loyalty program metrics. SCD Type 2 - tracks loyalty status changes. Contains loyalty_program_member, loyalty_points_balance, lifetime_value. |
 | __dim_products__ | `product_key` | `category_key` → `dim_product_categories` | Each product belongs to one category. SCD Type 2 table - tracks price/attribute changes over time. Multiple rows per product_id possible. |
@@ -528,7 +534,7 @@ erDiagram
 
 | Table | PK | FKs | Relationship |
 |-------|----|----|--------------|
-| __fact_sales__ | `sale_key` | `date_key` → `dim_dates` (required) | Central fact table - the "hub" of the star schema. |
+| __fact_sales__ | `sale_key` | `date_key` → `dim_dates` (required) | Central fact table - the "hub" of the star schema.|
 | | | `time_key` → `dim_time` (optional) | Each sale occurs at one time of day. |
 | | | `customer_key` → `dim_customers` (required) | Each sale belongs to one customer. |
 | | | `store_key` → `dim_stores` (optional) | Physical store location (NULL for online-only). |
@@ -540,7 +546,7 @@ erDiagram
 | __fact_inventory_snapshots__ | `inventory_snapshot_key` | `date_key` → `dim_dates` (required) | Daily inventory levels by product/location. |
 | | | `product_key` → `dim_products` (required) | Which product. |
 | | | `store_key` → `dim_stores` (optional) | Which location (NULL for warehouse). |
-| __fact_customer_interactions__ | `interaction_key` | `date_key` → `dim_dates` (required) | Customer touchpoints (visits, clicks, calls). |
+| __fact_customer_interactions__ | `interaction_key` | `date_key` → `dim_dates` (required) | Customer touchpoints (visits, clicks, calls).|
 | | | `time_key` → `dim_time` (optional) | When during the day. |
 | | | `customer_key` → `dim_customers` (required) | Which customer. |
 | | | `channel_key` → `dim_channels` (required) | Which channel. |

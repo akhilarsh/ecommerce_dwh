@@ -4,6 +4,7 @@ Fact generator for fact_sales.
 Generates sales transaction records with proper referential integrity.
 """
 
+import json
 import random
 from datetime import datetime, date
 from decimal import Decimal
@@ -18,6 +19,12 @@ class FactSalesGenerator(BaseEntityGenerator):
     
     table_name = "fact_sales"
     
+    ORDER_TAG_POOL = [
+        "express", "gift", "fragile", "bulk", "subscription", "loyalty-redeem",
+        "first-order", "returns-eligible", "digital", "pre-order",
+    ]
+    CARRIER_CODES = ["UPS", "FEDEX", "USPS", "DHL", "ONTRAC"]
+
     ORDER_STATUSES = [
         "Completed",
         "Processing",
@@ -156,6 +163,15 @@ class FactSalesGenerator(BaseEntityGenerator):
                 "order_status": order_status,
                 "is_online": random.random() < 0.6,
                 "created_at": now,
+                "order_tags": json.dumps(
+                    random.sample(self.ORDER_TAG_POOL, k=random.randint(1, 3))
+                ),
+                "shipment_metadata": json.dumps({
+                    "carrier": random.choice(self.CARRIER_CODES),
+                    "tracking_number": f"1Z{key:015d}",
+                    "weight_kg": round(random.uniform(0.1, 20.0), 2),
+                    "insurance": random.random() < 0.2,
+                }),
             }
             records.append(record)
         
