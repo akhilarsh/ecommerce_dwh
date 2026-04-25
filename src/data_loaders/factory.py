@@ -42,7 +42,12 @@ def get_loader(
         logger.info("Creating PostgreSQL data loader")
         return PostgresLoader(connector, config)
 
+    if platform == "databricks":
+        from src.data_loaders.databricks_loader import DatabricksLoader
+        logger.info("Creating Databricks data loader")
+        return DatabricksLoader(connector, config)
+
     raise ValueError(
         f"No data loader available for platform: '{platform}'. "
-        f"Supported: snowflake, postgres"
+        f"Supported: snowflake, postgres, databricks"
     )

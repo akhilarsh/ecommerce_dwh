@@ -71,6 +71,7 @@ def _substitute_env_vars(value: Any) -> Any:
 class VolumesConfig:
     """Volume settings for initial data generation."""
     customers: int = 0
+    customers_without_orders: int = 0
     products: int = 0
     stores: int = 0
     employees: int = 0
@@ -214,6 +215,7 @@ def _parse_volumes(data: Dict[str, Any]) -> VolumesConfig:
     section = data.get("initial_load", data.get("volumes", {}))
     return VolumesConfig(
         customers=_parse_int(section.get("customers"), 0),
+        customers_without_orders=_parse_int(section.get("customers_without_orders"), 0),
         products=_parse_int(section.get("products"), 0),
         stores=_parse_int(section.get("stores"), 0),
         employees=_parse_int(section.get("employees"), 0),

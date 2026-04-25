@@ -26,7 +26,11 @@
 # Used by: dwh generate-data
 initial_load:
   # Dimension counts
-  customers: ${DATAGEN_CUSTOMERS || 1000}
+  customers: ${DATAGEN_CUSTOMERS || 1500}
+  # Of the customers above, this many will be created but receive zero orders
+  # (useful for cold-start / dormant-customer analytics testing).
+  # Must be < customers. Set to 0 to disable.
+  customers_without_orders: ${DATAGEN_CUSTOMERS_WITHOUT_ORDERS || 100}
   products: ${DATAGEN_PRODUCTS || 5000}
   stores: ${DATAGEN_STORES || 10}
   employees: ${DATAGEN_EMPLOYEES || 50}
@@ -47,7 +51,7 @@ initial_load:
   # inventory_snapshots: Days of history (records = products × stores × days)
   # With 5000 products × 10 stores × 365 days = 18.25M records/year
   # Set to 0 to skip - can add later if inventory analytics needed
-  inventory_snapshots: ${DATAGEN_INVENTORY_SNAPSHOTS || 0}
+  inventory_snapshots: ${DATAGEN_INVENTORY_SNAPSHOTS || 15}
   
   # customer_interactions: Website visits, support calls, etc.
   customer_interactions: ${DATAGEN_CUSTOMER_INTERACTIONS || 5000}

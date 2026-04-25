@@ -50,18 +50,33 @@ def validate_command(
         schema_manager = SchemaManager()
         expected_tables = [t.table_name for t in schema_manager.all_tables]
 
+        is_snowflake = platform in ("sf", "snowflake")
+        is_databricks = platform in ("db", "dbx", "databricks")
+
         with connector:
-            # Get current database and schema
-            db_result = connector.execute_query("SELECT CURRENT_DATABASE(), CURRENT_SCHEMA()")
+            # Get current database/catalog and schema (platform-specific —
+            # Databricks errors on "duplicate field names" without aliases).
+            if is_snowflake:
+                db_result = connector.execute_query(
+                    "SELECT CURRENT_DATABASE() AS db, CURRENT_SCHEMA() AS sch"
+                )
+            elif is_databricks:
+                db_result = connector.execute_query(
+                    "SELECT current_catalog() AS cat, current_schema() AS sch"
+                )
+            else:
+                db_result = connector.execute_query(
+                    "SELECT current_database() AS db, current_schema() AS sch"
+                )
             if db_result:
                 database, schema = db_result[0]
-                console.print(f"[dim]Database: {database}[/dim]")
+                label = "Catalog" if is_databricks else "Database"
+                console.print(f"[dim]{label}: {database}[/dim]")
                 console.print(f"[dim]Schema: {schema}[/dim]\n")
-            
+
             # Check tables
             console.print("[bold]Checking tables...[/bold]\n")
 
-            is_snowflake = platform in ("sf", "snowflake")
             if is_snowflake:
                 tables_query = f"""
                     SELECT TABLE_NAME, ROW_COUNT, BYTES
@@ -71,6 +86,27 @@ def validate_command(
                 """
                 result = connector.execute_query(tables_query)
                 existing_tables = {row[0].lower(): {"rows": row[1], "bytes": row[2]} for row in result} if result else {}
+            elif is_databricks:
+                tables_query = f"""
+                    SELECT table_name
+                    FROM information_schema.tables
+                    WHERE table_catalog = '{database}'
+                      AND table_schema = '{schema}'
+                      AND table_type = 'MANAGED'
+                    ORDER BY table_name
+                """
+                result = connector.execute_query(tables_query)
+                # Row counts aren't in information_schema; populated below per-table.
+                existing_tables = {row[0].lower(): {"rows": None, "bytes": None} for row in result} if result else {}
+                for tbl_lower in list(existing_tables.keys()):
+                    try:
+                        r = connector.execute_query(
+                            f"SELECT COUNT(*) FROM {database}.{schema}.{tbl_lower}"
+                        )
+                        existing_tables[tbl_lower]["rows"] = r[0][0] if r else 0
+                    except Exception as e:
+                        logger.debug(f"COUNT(*) failed for {tbl_lower}: {e}")
+                        existing_tables[tbl_lower]["rows"] = 0
             else:
                 tables_query = f"""
                     SELECT t.table_name, COALESCE(s.n_live_tup, 0), NULL
@@ -117,13 +153,17 @@ def validate_command(
             fk_valid = True
             if check_fk and found_tables:
                 console.print("\n[bold]Checking foreign keys...[/bold]\n")
-                fk_valid = check_foreign_keys(connector, schema, platform, verbose)
-            
+                fk_valid = check_foreign_keys(
+                    connector, schema, platform, verbose, database=database
+                )
+
             # Check data if requested
             data_valid = True
             if check_data and found_tables:
                 console.print("\n[bold]Checking data presence...[/bold]\n")
-                data_valid = check_table_data(connector, schema, found_tables)
+                data_valid = check_table_data(
+                    connector, schema, found_tables, database=database, platform=platform
+                )
             
             # Final result
             all_valid = len(missing_tables) == 0 and fk_valid and data_valid
@@ -169,6 +209,7 @@ def status_command(verbose: bool = False) -> None:
 
         with connector:
             is_snowflake = platform in ("sf", "snowflake")
+            is_databricks = platform in ("db", "dbx", "databricks")
             database = schema = None
 
             if is_snowflake:
@@ -184,9 +225,20 @@ def status_command(verbose: bool = False) -> None:
                     tree.add(f"Role: [cyan]{role or 'Not set'}[/cyan]")
                     console.print(tree)
                     console.print()
+            elif is_databricks:
+                result = connector.execute_query(
+                    "SELECT current_catalog() AS cat, current_schema() AS sch"
+                )
+                if result:
+                    database, schema = result[0]
+                    tree = Tree("[bold]Databricks Connection[/bold]")
+                    tree.add(f"Catalog: [cyan]{database or 'Not set'}[/cyan]")
+                    tree.add(f"Schema: [cyan]{schema or 'Not set'}[/cyan]")
+                    console.print(tree)
+                    console.print()
             else:
                 result = connector.execute_query(
-                    "SELECT current_database(), current_schema()"
+                    "SELECT current_database() AS db, current_schema() AS sch"
                 )
                 if result:
                     database, schema = result[0]
@@ -212,6 +264,28 @@ def status_command(verbose: bool = False) -> None:
                         table_count, total_rows, total_bytes = result[0]
                     else:
                         table_count, total_rows, total_bytes = 0, 0, 0
+                elif is_databricks:
+                    count_query = f"""
+                        SELECT COUNT(*)
+                        FROM information_schema.tables
+                        WHERE table_catalog = '{database}'
+                          AND table_schema = '{schema}'
+                          AND table_type = 'MANAGED'
+                    """
+                    count_result = connector.execute_query(count_query)
+                    table_count = count_result[0][0] if count_result else 0
+                    # Sum row counts across all expected tables; Databricks
+                    # information_schema doesn't expose per-table row counts.
+                    total_rows = 0
+                    for tbl in [t.table_name for t in schema_manager.all_tables]:
+                        try:
+                            r = connector.execute_query(
+                                f"SELECT COUNT(*) FROM {database}.{schema}.{tbl}"
+                            )
+                            total_rows += r[0][0] if r else 0
+                        except Exception:
+                            pass
+                    total_bytes = None
                 else:
                     count_query = f"""
                         SELECT COUNT(*)
@@ -252,24 +326,33 @@ def status_command(verbose: bool = False) -> None:
         logger.error(f"Status check failed: {e}")
 
 
-def check_foreign_keys(connector: BaseConnector, schema: str, platform: str, verbose: bool = False) -> bool:
+def check_foreign_keys(
+    connector: BaseConnector,
+    schema: str,
+    platform: str,
+    verbose: bool = False,
+    database: Optional[str] = None,
+) -> bool:
     """
     Check foreign key constraints.
 
     Uses platform-specific queries:
     - Snowflake: INFORMATION_SCHEMA with UPPER() and REFERENTIAL_CONSTRAINTS
     - PostgreSQL: information_schema with pg_catalog for referenced table lookup
+    - Databricks: information_schema with explicit table_catalog filter (UC)
 
     Args:
         connector: DWH connector
         schema: Schema name
-        platform: DWH platform identifier (e.g. "sf", "pg")
+        platform: DWH platform identifier (e.g. "sf", "pg", "dbx")
         verbose: Enable verbose output
+        database: Catalog/database name (required for Databricks 3-part naming)
 
     Returns:
         True if all FKs are valid
     """
     is_snowflake = platform in ("sf", "snowflake")
+    is_databricks = platform in ("db", "dbx", "databricks")
 
     if is_snowflake:
         fk_query = f"""
@@ -286,6 +369,31 @@ def check_foreign_keys(connector: BaseConnector, schema: str, platform: str, ver
             WHERE tc.TABLE_SCHEMA = UPPER('{schema}')
             AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
             ORDER BY tc.TABLE_NAME
+        """
+    elif is_databricks:
+        fk_query = f"""
+            SELECT
+                tc.table_name,
+                tc.constraint_name,
+                kcu.column_name,
+                ccu.table_name AS referenced_table
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+                ON tc.constraint_catalog = kcu.constraint_catalog
+                AND tc.constraint_schema = kcu.constraint_schema
+                AND tc.constraint_name = kcu.constraint_name
+            JOIN information_schema.referential_constraints rc
+                ON tc.constraint_catalog = rc.constraint_catalog
+                AND tc.constraint_schema = rc.constraint_schema
+                AND tc.constraint_name = rc.constraint_name
+            JOIN information_schema.constraint_column_usage ccu
+                ON rc.unique_constraint_catalog = ccu.constraint_catalog
+                AND rc.unique_constraint_schema = ccu.constraint_schema
+                AND rc.unique_constraint_name = ccu.constraint_name
+            WHERE tc.table_catalog = '{database}'
+              AND tc.table_schema = '{schema}'
+              AND tc.constraint_type = 'FOREIGN KEY'
+            ORDER BY tc.table_name
         """
     else:
         fk_query = f"""
@@ -336,24 +444,39 @@ def check_foreign_keys(connector: BaseConnector, schema: str, platform: str, ver
         return False
 
 
-def check_table_data(connector: BaseConnector, schema: str, tables: list) -> bool:
+def check_table_data(
+    connector: BaseConnector,
+    schema: str,
+    tables: list,
+    database: Optional[str] = None,
+    platform: Optional[str] = None,
+) -> bool:
     """
     Check for data presence in tables.
-    
+
     Args:
-        connector: Snowflake connector
+        connector: DWH connector
         schema: Schema name
         tables: List of table names to check
-        
+        database: Catalog/database (required for Databricks 3-part naming)
+        platform: Platform identifier — drives qualified-name construction
+
     Returns:
         True if data check passes
     """
+    is_databricks = platform in ("db", "dbx", "databricks")
+
+    def _qualify(tbl: str) -> str:
+        if is_databricks and database:
+            return f"{database}.{schema}.{tbl}"
+        return f"{schema}.{tbl}"
+
     empty_tables = []
     populated_tables = []
-    
+
     for table_name in tables:
         try:
-            result = connector.execute_query(f"SELECT COUNT(*) FROM {schema}.{table_name}")
+            result = connector.execute_query(f"SELECT COUNT(*) FROM {_qualify(table_name)}")
             row_count = result[0][0] if result else 0
             
             if row_count == 0:

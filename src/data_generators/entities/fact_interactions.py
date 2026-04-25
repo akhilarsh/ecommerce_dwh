@@ -4,6 +4,7 @@ Fact generator for fact_customer_interactions.
 Generates customer interaction/touchpoint records.
 """
 
+import base64
 import json
 import os
 import random
@@ -174,7 +175,11 @@ class FactCustomerInteractionsGenerator(BaseEntityGenerator):
                     f"POINT({round(random.uniform(*self._WORLD_LON_RANGE), 4)} "
                     f"{round(random.uniform(*self._WORLD_LAT_RANGE), 4)})"
                 ),
-                "raw_payload": None,
+                # Random byte payload, base64-encoded for safe CSV transport.
+                # Loaders are responsible for decoding (Databricks: unbase64()).
+                "raw_payload": base64.b64encode(
+                    random.randbytes(random.randint(16, 64))
+                ).decode("ascii"),
             }
             records.append(record)
         

@@ -158,8 +158,9 @@ For detailed documentation of each phase, see the individual phase files in this
 | 8 | Audience Analytics | ✅ Complete | [phase8_audience_analytics.md](phase8_audience_analytics.md) |
 | 9 | Account Dimension | ✅ Complete | [phase9_account_dimension.md](phase9_account_dimension.md) |
 | 10 | PostgreSQL Support | ✅ Complete | [phase10_postgres.md](phase10_postgres.md) |
+| 11 | Databricks Support | ✅ Complete | [phase11_databricks.md](phase11_databricks.md) |
 
-**Completion:** 10/10 Phases (100%)
+**Completion:** 11/11 Phases (100%)
 
 ---
 
@@ -304,6 +305,9 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 | PostgreSQL Connector | ✅ | `src/connectors/postgres_connector.py` |
 | PostgreSQL Loader | ✅ | `src/data_loaders/postgres_loader.py` |
 | PG DDL Adapter | ✅ | `src/sql_generator/pg_ddl_adapter.py` |
+| Databricks Connector | ✅ | `src/connectors/databricks_connector.py` |
+| Databricks Loader | ✅ | `src/data_loaders/databricks_loader.py` |
+| Databricks DDL Adapter | ✅ | `src/sql_generator/dbx_ddl_adapter.py` |
 | Connector/Loader Factories | ✅ | `src/connectors/factory.py`, `src/data_loaders/factory.py` |
 
 ---

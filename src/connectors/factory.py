@@ -13,6 +13,7 @@ from typing import Dict, Optional, Type
 from src.connectors.base_connector import BaseConnector
 from src.connectors.snowflake_connector import SnowflakeConnector
 from src.connectors.postgres_connector import PostgresConnector
+from src.connectors.databricks_connector import DatabricksConnector
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -23,23 +24,24 @@ DWH_REGISTRY: Dict[str, Type[BaseConnector]] = {
     # Snowflake
     "sf": SnowflakeConnector,
     "snowflake": SnowflakeConnector,
-    
+
     # PostgreSQL
     "pg": PostgresConnector,
     "postgres": PostgresConnector,
     "postgresql": PostgresConnector,
-    
+
+    # Databricks
+    "db": DatabricksConnector,
+    "dbx": DatabricksConnector,
+    "databricks": DatabricksConnector,
+
     # BigQuery (placeholder - implement BigQueryConnector)
     # "bq": BigQueryConnector,
     # "bigquery": BigQueryConnector,
-    
+
     # Redshift (placeholder - implement RedshiftConnector)
     # "rs": RedshiftConnector,
     # "redshift": RedshiftConnector,
-    
-    # Databricks (placeholder - implement DatabricksConnector)
-    # "db": DatabricksConnector,
-    # "databricks": DatabricksConnector,
 }
 
 # Default DWH platform
@@ -52,12 +54,13 @@ DWH_DISPLAY_NAMES: Dict[str, str] = {
     "pg": "PostgreSQL",
     "postgres": "PostgreSQL",
     "postgresql": "PostgreSQL",
+    "db": "Databricks",
+    "dbx": "Databricks",
+    "databricks": "Databricks",
     "bq": "BigQuery",
     "bigquery": "BigQuery",
     "rs": "Redshift",
     "redshift": "Redshift",
-    "db": "Databricks",
-    "databricks": "Databricks",
 }
 
 

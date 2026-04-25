@@ -306,7 +306,12 @@ class TableSetupWorkflow(BaseWorkflow):
         import re
         from pathlib import Path
 
-        platform_dir = "pg" if platform in ("pg", "postgres", "postgresql") else "snowflake"
+        if platform in ("pg", "postgres", "postgresql"):
+            platform_dir = "pg"
+        elif platform in ("db", "dbx", "databricks"):
+            platform_dir = "databricks"
+        else:
+            platform_dir = "snowflake"
         views_dir = Path(__file__).parent.parent.parent / "outputs" / "generated_sql" / platform_dir
         view_files = sorted(views_dir.glob("*view*.sql"))
 
@@ -324,6 +329,8 @@ class TableSetupWorkflow(BaseWorkflow):
                     schema=_sql.Identifier(schema)
                 )
                 connector.execute_query(stmt.as_string(connector.connection))
+            elif platform in ("db", "dbx", "databricks"):
+                connector.execute_query(f"USE SCHEMA `{schema}`")
             else:
                 connector.execute_query(f"USE SCHEMA {schema}")
         except Exception as e:
@@ -379,12 +386,17 @@ class TableSetupWorkflow(BaseWorkflow):
         else:
             qualified_prefix = f"{creator.database_name}.{creator.schema_name}"
 
+        # Databricks DROP TABLE does not support CASCADE
+        cascade_clause = "" if creator.platform == "databricks" else " CASCADE"
+
         for table_name in drop_order:
             if table_name.lower() in [t.lower() for t in existing_tables]:
                 try:
                     qualified_name = f"{qualified_prefix}.{table_name}"
                     logger.info(f"Dropping table: {qualified_name}")
-                    creator.connector.execute_query(f"DROP TABLE IF EXISTS {qualified_name} CASCADE")
+                    creator.connector.execute_query(
+                        f"DROP TABLE IF EXISTS {qualified_name}{cascade_clause}"
+                    )
                     if creator.platform == "postgres":
                         creator.connector.commit()
                 except Exception as e:

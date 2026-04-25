@@ -204,6 +204,9 @@ class SchemaManager:
         if platform in ("pg", "postgres", "postgresql"):
             return self._save_pg_scripts(output_dir)
 
+        if platform in ("db", "dbx", "databricks"):
+            return self._save_dbx_scripts(output_dir)
+
         # Snowflake (default)
         sf_dir = os.path.join(output_dir, "snowflake")
         os.makedirs(sf_dir, exist_ok=True)
@@ -273,6 +276,50 @@ class SchemaManager:
             "foreign_keys": fk_file,
         }
     
+    def _save_dbx_scripts(self, output_dir: str):
+        """Save Databricks DDL scripts."""
+        import os
+        from src.sql_generator.dbx_ddl_adapter import (
+            generate_dbx_create_schema,
+            generate_dbx_create_table,
+            generate_dbx_drop_table,
+            generate_dbx_foreign_keys,
+        )
+
+        catalog = os.getenv("DATABRICKS_CATALOG", "main")
+        schema = os.getenv("DATABRICKS_SCHEMA", "ecommerce_dwh")
+        dbx_dir = os.path.join(output_dir, "databricks")
+        os.makedirs(dbx_dir, exist_ok=True)
+
+        create_stmts: List[str] = [generate_dbx_create_schema(catalog, schema)]
+        for table in self.all_tables:
+            create_sql, _ = generate_dbx_create_table(table, catalog, schema)
+            create_stmts.append(create_sql)
+
+        create_file = os.path.join(dbx_dir, "01_create_tables.sql")
+        Path(create_file).write_text("\n\n".join(create_stmts))
+
+        fk_stmts: List[str] = []
+        for table in self.all_tables:
+            fk_stmts.extend(generate_dbx_foreign_keys(table, catalog, schema))
+        fk_file = os.path.join(dbx_dir, "02_foreign_keys.sql")
+        Path(fk_file).write_text("\n\n".join(fk_stmts) if fk_stmts else "-- No foreign keys")
+
+        drop_stmts = [
+            generate_dbx_drop_table(t, catalog, schema)
+            for t in reversed(self.all_tables)
+        ]
+        drop_file = os.path.join(dbx_dir, "00_drop_tables.sql")
+        Path(drop_file).write_text("\n\n".join(drop_stmts))
+
+        logger.info(f"Databricks SQL scripts saved to {dbx_dir}/")
+
+        return {
+            "drop_tables": drop_file,
+            "create_tables": create_file,
+            "foreign_keys": fk_file,
+        }
+
     def get_table_summary(self) -> Dict[str, int]:
         """
         Get summary of table counts by category.

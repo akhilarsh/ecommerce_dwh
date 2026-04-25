@@ -14,9 +14,9 @@ Usage:
 Supported DWH platforms (shorthand / full name):
     sf / snowflake       - Snowflake Data Cloud
     pg / postgres        - PostgreSQL
+    db / dbx / databricks - Databricks (Unity Catalog)
     bq / bigquery        - Google BigQuery (placeholder)
     rs / redshift        - Amazon Redshift (placeholder)
-    db / databricks      - Databricks (placeholder)
 
 Configuration priority:
     1. Environment variable (DWH_PLATFORM)

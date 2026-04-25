@@ -66,13 +66,16 @@ def setup_tables_command(
             # Platform-aware schema resolution:
             # - For Snowflake, require explicit schema via argument or SNOWFLAKE_SCHEMA.
             # - For other platforms (e.g., Postgres), default to POSTGRES_SCHEMA or "public".
-            if str(platform).lower() == "snowflake":
+            platform_lower = str(platform).lower()
+            if platform_lower in ("snowflake", "sf"):
                 schema_name = schema or os.getenv("SNOWFLAKE_SCHEMA")
                 if not schema_name:
                     raise ValueError(
                         "Schema is required for Snowflake in --views-only mode. "
                         "Provide --schema or set SNOWFLAKE_SCHEMA."
                     )
+            elif platform_lower in ("databricks", "db", "dbx"):
+                schema_name = schema or os.getenv("DATABRICKS_SCHEMA") or "ecommerce_dwh"
             else:
                 schema_name = schema or os.getenv("POSTGRES_SCHEMA") or "public"
             views_result = workflow.create_views(connector, platform, schema_name)

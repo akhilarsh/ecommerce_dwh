@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ecommerce_dwh"
 version = "1.0.0"
-description = "Programmatic data warehouse setup for e-commerce analytics (Snowflake, PostgreSQL)"
+description = "Programmatic data warehouse setup for e-commerce analytics (Snowflake, PostgreSQL, Databricks)"
 requires-python = ">=3.10"
 
 dependencies = [
@@ -27,6 +27,11 @@ dwh = "cli.main:cli"
 [project.optional-dependencies]
 pg = [
     "psycopg2-binary>=2.9.9",
+]
+databricks = [
+    "databricks-sql-connector>=3.0.0",
+    "databricks-sdk>=0.20.0",
+    "pyarrow>=14.0.0",
 ]
 dev = [
     "pytest>=7.4.0",

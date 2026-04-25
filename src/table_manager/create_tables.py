@@ -79,6 +79,13 @@ class TableCreator:
                 raise ValueError("POSTGRES_DATABASE environment variable is required")
             return db, schema
 
+        if self.platform == "databricks":
+            db = (database_name or os.getenv("DATABRICKS_CATALOG", "")).lower()
+            schema = (schema_name or os.getenv("DATABRICKS_SCHEMA", "ecommerce_dwh")).lower()
+            if not db:
+                raise ValueError("DATABRICKS_CATALOG environment variable is required")
+            return db, schema
+
         raise ValueError(f"Unsupported platform: {self.platform}")
 
     # ------------------------------------------------------------------
@@ -120,6 +127,8 @@ class TableCreator:
                 self._verify_snowflake(status)
             elif self.platform == "postgres":
                 self._verify_postgres(status)
+            elif self.platform == "databricks":
+                self._verify_databricks(status)
 
             if not status["connection_ok"] or not status["database_exists"] or not status["schema_exists"]:
                 return status
@@ -198,6 +207,44 @@ class TableCreator:
         else:
             logger.warning(f"  ✗ Schema '{self.schema_name}' NOT FOUND")
 
+    def _verify_databricks(self, status: Dict[str, Any]) -> None:
+        logger.info("Testing Databricks connection...")
+        result = self.connector.execute_query(
+            "SELECT current_user(), current_catalog(), current_schema()"
+        )
+        if result:
+            user, catalog, schema = result[0]
+            logger.info(f"  ✓ Connected as user: {user}")
+            logger.info(f"  ✓ Catalog: {catalog}")
+            logger.info(f"  ✓ Schema: {schema}")
+            status["connection_ok"] = True
+
+        logger.info(f"\nChecking catalog: {self.database_name}")
+        catalog_check = self.connector.execute_query(
+            "SELECT 1 FROM information_schema.catalogs WHERE catalog_name = ?",
+            (self.database_name,),
+        )
+        if catalog_check and len(catalog_check) > 0:
+            logger.info(f"  ✓ Catalog '{self.database_name}' exists")
+            status["database_exists"] = True
+            self.pre_creation_status["database_available"] = True
+        else:
+            logger.warning(f"  ✗ Catalog '{self.database_name}' NOT FOUND")
+            return
+
+        logger.info(f"\nChecking schema: {self.schema_name}")
+        schema_check = self.connector.execute_query(
+            "SELECT 1 FROM information_schema.schemata "
+            "WHERE catalog_name = ? AND schema_name = ?",
+            (self.database_name, self.schema_name),
+        )
+        if schema_check and len(schema_check) > 0:
+            logger.info(f"  ✓ Schema '{self.schema_name}' exists")
+            status["schema_exists"] = True
+            self.pre_creation_status["schema_exists"] = True
+        else:
+            logger.warning(f"  ✗ Schema '{self.schema_name}' NOT FOUND")
+
     def _verify_postgres(self, status: Dict[str, Any]) -> None:
         logger.info("Testing PostgreSQL connection...")
         result = self.connector.execute_query("SELECT current_user, current_database()")
@@ -240,6 +287,9 @@ class TableCreator:
                     self.stats["errors"].append(error_msg)
                     return False
                 self.connector.execute_query(f"USE DATABASE {self.database_name}")
+            elif self.platform == "databricks":
+                logger.info(f"Using catalog: {self.database_name}")
+                self.connector.execute_query(f"USE CATALOG `{self.database_name}`")
             # PG: no-op — already connected to the database
             logger.info(f"✓ Database '{self.database_name}' ready")
             self.stats["database_exists"] = True
@@ -271,6 +321,10 @@ class TableCreator:
                     f"SET search_path TO {self.schema_name}, public"
                 )
 
+            elif self.platform == "databricks":
+                logger.info(f"Using schema: {self.schema_name}")
+                self.connector.execute_query(f"USE SCHEMA `{self.schema_name}`")
+
             logger.info(f"✓ Schema '{self.schema_name}' ready")
             self.stats["schema_exists"] = True
             return True
@@ -301,6 +355,21 @@ class TableCreator:
                 scripts.extend(comment_stmts)
             return scripts
 
+        if self.platform == "databricks":
+            from src.sql_generator.dbx_ddl_adapter import generate_dbx_create_table
+
+            tables = self.schema_manager.all_tables
+            if table_filter:
+                tables = [t for t in tables if t.table_name.lower() == table_filter.lower()]
+
+            scripts: List[str] = []
+            for table in tables:
+                create_sql, _ = generate_dbx_create_table(
+                    table, self.database_name, self.schema_name
+                )
+                scripts.append(create_sql)
+            return scripts
+
         return self.schema_manager.get_create_table_scripts(table_filter)
 
     def _get_fk_scripts(self, table_filter: Optional[str] = None) -> List[str]:
@@ -315,6 +384,22 @@ class TableCreator:
             scripts: List[str] = []
             for table in tables:
                 scripts.extend(generate_pg_foreign_keys(table, self.schema_name))
+            return scripts
+
+        if self.platform == "databricks":
+            from src.sql_generator.dbx_ddl_adapter import generate_dbx_foreign_keys
+
+            tables = self.schema_manager.all_tables
+            if table_filter:
+                tables = [t for t in tables if t.table_name.lower() == table_filter.lower()]
+
+            scripts: List[str] = []
+            for table in tables:
+                scripts.extend(
+                    generate_dbx_foreign_keys(
+                        table, self.database_name, self.schema_name
+                    )
+                )
             return scripts
 
         return self.schema_manager.get_foreign_key_scripts(table_filter)
@@ -409,6 +494,14 @@ class TableCreator:
                 )
                 return [row[0] for row in result] if result else []
 
+            if self.platform == "databricks":
+                result = self.connector.execute_query(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_catalog = ? AND table_schema = ?",
+                    (self.database_name, self.schema_name),
+                )
+                return [row[0] for row in result] if result else []
+
             return []
         except Exception as e:
             logger.error(f"Failed to query existing tables: {e}")
@@ -494,6 +587,12 @@ class TableCreator:
                         "SELECT COUNT(*) FROM information_schema.tables "
                         "WHERE table_schema = %s AND table_name = %s",
                         (self.schema_name, tbl),
+                    )
+                elif self.platform == "databricks":
+                    result = self.connector.execute_query(
+                        "SELECT COUNT(*) FROM information_schema.tables "
+                        "WHERE table_catalog = ? AND table_schema = ? AND table_name = ?",
+                        (self.database_name, self.schema_name, tbl),
                     )
                 else:
                     result = None

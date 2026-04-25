@@ -32,11 +32,13 @@ from src.connectors.factory import (
 )
 from src.connectors.snowflake_connector import SnowflakeConnector
 from src.connectors.postgres_connector import PostgresConnector
+from src.connectors.databricks_connector import DatabricksConnector
 
 __all__ = [
     "BaseConnector",
     "SnowflakeConnector",
     "PostgresConnector",
+    "DatabricksConnector",
     "get_connector",
     "list_supported_dwh",
     "get_dwh_display_name",

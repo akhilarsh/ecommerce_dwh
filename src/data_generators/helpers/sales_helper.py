@@ -107,9 +107,34 @@ class SalesHelper(BaseHelper):
         # Get dimension keys for fact generation
         dimension_keys = self.keys_loader.get_all_dimension_keys()
 
+        # Pick N customers to receive zero orders (initial-load "dormant" cohort).
+        no_order_count = self._get_volume("customers_without_orders")
+        no_order_customer_keys: List[int] = []
+        sales_selector: Optional[CustomerSelector] = None
+        if no_order_count > 0:
+            import random
+            all_customer_keys = dimension_keys.get("dim_customers", [])
+            if no_order_count >= len(all_customer_keys):
+                self.logger.warning(
+                    f"customers_without_orders ({no_order_count}) >= "
+                    f"customers ({len(all_customer_keys)}); skipping exclusion"
+                )
+            else:
+                no_order_customer_keys = random.sample(all_customer_keys, no_order_count)
+                self.logger.info(
+                    f"Excluding {no_order_count} customers from initial sales: "
+                    f"{no_order_customer_keys[:10]}{'...' if no_order_count > 10 else ''}"
+                )
+                sales_selector = CustomerSelector(
+                    existing_keys=all_customer_keys,
+                    excluded_keys=no_order_customer_keys,
+                )
+
         # Generate sales
         if self._should_generate("sales"):
-            sales = self._generate_sales(dimension_keys)
+            sales = self._generate_sales(
+                dimension_keys, customer_selector=sales_selector
+            )
             result.add_fact(sales)
             self._update_keys("fact_sales", sales.surrogate_keys)
 
