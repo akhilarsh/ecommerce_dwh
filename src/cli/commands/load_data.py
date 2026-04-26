@@ -54,13 +54,17 @@ def _resolve_input_dir(input_dir: Optional[str], mode: str) -> str:
         return config.paths.output_dir or "outputs/initial_data"
     elif mode == "incremental":
         base_dir = config.paths.incremental_output_dir or "outputs/incremental_data"
-        # Check for date-ranged subdirectories (e.g., 2026-01-01_to_2026-01-31)
+        # Check for date-ranged subdirectories (e.g., 2026-01-01_to_2026-01-31).
+        # Sort by modification time, not name — directory names are date
+        # *ranges*, and the latest run isn't always the alphabetically-last
+        # range (e.g. an Apr run that backfills 2026-03-09 sorts before an
+        # older 2026-03-10 dir).
         base_path = Path(base_dir)
         if base_path.exists():
-            subdirs = sorted([d for d in base_path.iterdir() if d.is_dir() and "_to_" in d.name])
+            subdirs = [d for d in base_path.iterdir() if d.is_dir() and "_to_" in d.name]
             if subdirs:
-                # Return most recent (last alphabetically = latest date range)
-                return str(subdirs[-1])
+                latest = max(subdirs, key=lambda d: d.stat().st_mtime)
+                return str(latest)
         return base_dir
     else:
         return "outputs/initial_data"

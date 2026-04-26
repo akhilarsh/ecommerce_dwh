@@ -86,6 +86,14 @@ class TableCreator:
                 raise ValueError("DATABRICKS_CATALOG environment variable is required")
             return db, schema
 
+        if self.platform == "bigquery":
+            # BigQuery project ids are case-sensitive (typically lowercase with hyphens).
+            db = database_name or os.getenv("BIGQUERY_PROJECT", "")
+            schema = schema_name or os.getenv("BIGQUERY_DATASET", "ecommerce_dwh")
+            if not db:
+                raise ValueError("BIGQUERY_PROJECT environment variable is required")
+            return db, schema
+
         raise ValueError(f"Unsupported platform: {self.platform}")
 
     # ------------------------------------------------------------------
@@ -129,6 +137,8 @@ class TableCreator:
                 self._verify_postgres(status)
             elif self.platform == "databricks":
                 self._verify_databricks(status)
+            elif self.platform == "bigquery":
+                self._verify_bigquery(status)
 
             if not status["connection_ok"] or not status["database_exists"] or not status["schema_exists"]:
                 return status
@@ -245,6 +255,32 @@ class TableCreator:
         else:
             logger.warning(f"  ✗ Schema '{self.schema_name}' NOT FOUND")
 
+    def _verify_bigquery(self, status: Dict[str, Any]) -> None:
+        logger.info("Testing BigQuery connection...")
+        # Use a SELECT 1 round-trip; BigQuery clients lazily authenticate
+        # until the first query.
+        result = self.connector.execute_query("SELECT 1")
+        if result:
+            logger.info(f"  ✓ Connected to BigQuery project: {self.database_name}")
+            status["connection_ok"] = True
+
+        # BigQuery project always "exists" by virtue of the client being able
+        # to connect. We trust the configured project id.
+        status["database_exists"] = True
+        self.pre_creation_status["database_available"] = True
+
+        logger.info(f"\nChecking dataset: {self.schema_name}")
+        try:
+            from google.cloud.exceptions import NotFound
+            self.connector.client.get_dataset(
+                f"{self.database_name}.{self.schema_name}"
+            )
+            logger.info(f"  ✓ Dataset '{self.schema_name}' exists")
+            status["schema_exists"] = True
+            self.pre_creation_status["schema_exists"] = True
+        except NotFound:
+            logger.warning(f"  ✗ Dataset '{self.schema_name}' NOT FOUND")
+
     def _verify_postgres(self, status: Dict[str, Any]) -> None:
         logger.info("Testing PostgreSQL connection...")
         result = self.connector.execute_query("SELECT current_user, current_database()")
@@ -290,6 +326,10 @@ class TableCreator:
             elif self.platform == "databricks":
                 logger.info(f"Using catalog: {self.database_name}")
                 self.connector.execute_query(f"USE CATALOG `{self.database_name}`")
+            elif self.platform == "bigquery":
+                # BigQuery has no `USE PROJECT` concept — the client is bound
+                # to the project at connection time.
+                logger.info(f"BigQuery project bound at connection: {self.database_name}")
             # PG: no-op — already connected to the database
             logger.info(f"✓ Database '{self.database_name}' ready")
             self.stats["database_exists"] = True
@@ -324,6 +364,14 @@ class TableCreator:
             elif self.platform == "databricks":
                 logger.info(f"Using schema: {self.schema_name}")
                 self.connector.execute_query(f"USE SCHEMA `{self.schema_name}`")
+
+            elif self.platform == "bigquery":
+                # BigQuery datasets are referenced by 3-part name in every
+                # query; there is no `USE SCHEMA`. No-op.
+                logger.info(
+                    f"BigQuery dataset will be referenced as "
+                    f"`{self.database_name}.{self.schema_name}`"
+                )
 
             logger.info(f"✓ Schema '{self.schema_name}' ready")
             self.stats["schema_exists"] = True
@@ -370,6 +418,21 @@ class TableCreator:
                 scripts.append(create_sql)
             return scripts
 
+        if self.platform == "bigquery":
+            from src.sql_generator.bq_ddl_adapter import generate_bq_create_table
+
+            tables = self.schema_manager.all_tables
+            if table_filter:
+                tables = [t for t in tables if t.table_name.lower() == table_filter.lower()]
+
+            scripts: List[str] = []
+            for table in tables:
+                create_sql, _ = generate_bq_create_table(
+                    table, self.database_name, self.schema_name
+                )
+                scripts.append(create_sql)
+            return scripts
+
         return self.schema_manager.get_create_table_scripts(table_filter)
 
     def _get_fk_scripts(self, table_filter: Optional[str] = None) -> List[str]:
@@ -397,6 +460,22 @@ class TableCreator:
             for table in tables:
                 scripts.extend(
                     generate_dbx_foreign_keys(
+                        table, self.database_name, self.schema_name
+                    )
+                )
+            return scripts
+
+        if self.platform == "bigquery":
+            from src.sql_generator.bq_ddl_adapter import generate_bq_foreign_keys
+
+            tables = self.schema_manager.all_tables
+            if table_filter:
+                tables = [t for t in tables if t.table_name.lower() == table_filter.lower()]
+
+            scripts: List[str] = []
+            for table in tables:
+                scripts.extend(
+                    generate_bq_foreign_keys(
                         table, self.database_name, self.schema_name
                     )
                 )
@@ -502,6 +581,13 @@ class TableCreator:
                 )
                 return [row[0] for row in result] if result else []
 
+            if self.platform == "bigquery":
+                result = self.connector.execute_query(
+                    f"SELECT table_name FROM "
+                    f"`{self.database_name}.{self.schema_name}.INFORMATION_SCHEMA.TABLES`"
+                )
+                return [row[0] for row in result] if result else []
+
             return []
         except Exception as e:
             logger.error(f"Failed to query existing tables: {e}")
@@ -593,6 +679,12 @@ class TableCreator:
                         "SELECT COUNT(*) FROM information_schema.tables "
                         "WHERE table_catalog = ? AND table_schema = ? AND table_name = ?",
                         (self.database_name, self.schema_name, tbl),
+                    )
+                elif self.platform == "bigquery":
+                    result = self.connector.execute_query(
+                        f"SELECT COUNT(*) FROM "
+                        f"`{self.database_name}.{self.schema_name}.INFORMATION_SCHEMA.TABLES` "
+                        f"WHERE table_name = '{tbl}'"
                     )
                 else:
                     result = None

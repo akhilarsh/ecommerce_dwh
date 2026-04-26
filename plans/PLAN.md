@@ -159,8 +159,9 @@ For detailed documentation of each phase, see the individual phase files in this
 | 9 | Account Dimension | ✅ Complete | [phase9_account_dimension.md](phase9_account_dimension.md) |
 | 10 | PostgreSQL Support | ✅ Complete | [phase10_postgres.md](phase10_postgres.md) |
 | 11 | Databricks Support | ✅ Complete | [phase11_databricks.md](phase11_databricks.md) |
+| 12 | BigQuery Support | ✅ Complete | [phase12_bigquery.md](phase12_bigquery.md) |
 
-**Completion:** 11/11 Phases (100%)
+**Completion:** 12/12 Phases (100%)
 
 ---
 
@@ -308,6 +309,9 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 | Databricks Connector | ✅ | `src/connectors/databricks_connector.py` |
 | Databricks Loader | ✅ | `src/data_loaders/databricks_loader.py` |
 | Databricks DDL Adapter | ✅ | `src/sql_generator/dbx_ddl_adapter.py` |
+| BigQuery Connector | ✅ | `src/connectors/bigquery_connector.py` |
+| BigQuery Loader | ✅ | `src/data_loaders/bigquery_loader.py` |
+| BigQuery DDL Adapter | ✅ | `src/sql_generator/bq_ddl_adapter.py` |
 | Connector/Loader Factories | ✅ | `src/connectors/factory.py`, `src/data_loaders/factory.py` |
 
 ---

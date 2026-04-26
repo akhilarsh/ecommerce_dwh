@@ -197,7 +197,7 @@ class SchemaManager:
 
         Args:
             output_dir: Base output directory for SQL files
-            platform: Target platform ('snowflake' or 'pg')
+            platform: Target platform ('snowflake', 'pg', 'databricks', 'bigquery')
         """
         import os
 
@@ -206,6 +206,9 @@ class SchemaManager:
 
         if platform in ("db", "dbx", "databricks"):
             return self._save_dbx_scripts(output_dir)
+
+        if platform in ("bq", "bigquery"):
+            return self._save_bq_scripts(output_dir)
 
         # Snowflake (default)
         sf_dir = os.path.join(output_dir, "snowflake")
@@ -313,6 +316,51 @@ class SchemaManager:
         Path(drop_file).write_text("\n\n".join(drop_stmts))
 
         logger.info(f"Databricks SQL scripts saved to {dbx_dir}/")
+
+        return {
+            "drop_tables": drop_file,
+            "create_tables": create_file,
+            "foreign_keys": fk_file,
+        }
+
+    def _save_bq_scripts(self, output_dir: str):
+        """Save BigQuery DDL scripts."""
+        import os
+        from src.sql_generator.bq_ddl_adapter import (
+            generate_bq_create_schema,
+            generate_bq_create_table,
+            generate_bq_drop_table,
+            generate_bq_foreign_keys,
+        )
+
+        project = os.getenv("BIGQUERY_PROJECT", "your-project-id")
+        dataset = os.getenv("BIGQUERY_DATASET", "ecommerce_dwh")
+        location = os.getenv("BIGQUERY_LOCATION", "US")
+        bq_dir = os.path.join(output_dir, "bigquery")
+        os.makedirs(bq_dir, exist_ok=True)
+
+        create_stmts: List[str] = [generate_bq_create_schema(project, dataset, location)]
+        for table in self.all_tables:
+            create_sql, _ = generate_bq_create_table(table, project, dataset)
+            create_stmts.append(create_sql)
+
+        create_file = os.path.join(bq_dir, "01_create_tables.sql")
+        Path(create_file).write_text("\n\n".join(create_stmts))
+
+        fk_stmts: List[str] = []
+        for table in self.all_tables:
+            fk_stmts.extend(generate_bq_foreign_keys(table, project, dataset))
+        fk_file = os.path.join(bq_dir, "02_foreign_keys.sql")
+        Path(fk_file).write_text("\n\n".join(fk_stmts) if fk_stmts else "-- No foreign keys")
+
+        drop_stmts = [
+            generate_bq_drop_table(t, project, dataset)
+            for t in reversed(self.all_tables)
+        ]
+        drop_file = os.path.join(bq_dir, "00_drop_tables.sql")
+        Path(drop_file).write_text("\n\n".join(drop_stmts))
+
+        logger.info(f"BigQuery SQL scripts saved to {bq_dir}/")
 
         return {
             "drop_tables": drop_file,

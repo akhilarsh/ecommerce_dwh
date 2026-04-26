@@ -47,7 +47,12 @@ def get_loader(
         logger.info("Creating Databricks data loader")
         return DatabricksLoader(connector, config)
 
+    if platform == "bigquery":
+        from src.data_loaders.bigquery_loader import BigQueryLoader
+        logger.info("Creating BigQuery data loader")
+        return BigQueryLoader(connector, config)
+
     raise ValueError(
         f"No data loader available for platform: '{platform}'. "
-        f"Supported: snowflake, postgres, databricks"
+        f"Supported: snowflake, postgres, databricks, bigquery"
     )

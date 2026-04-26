@@ -12,11 +12,11 @@ Usage:
     dwh create-and-load          # Full deployment with data
 
 Supported DWH platforms (shorthand / full name):
-    sf / snowflake       - Snowflake Data Cloud
-    pg / postgres        - PostgreSQL
+    sf / snowflake        - Snowflake Data Cloud
+    pg / postgres         - PostgreSQL
     db / dbx / databricks - Databricks (Unity Catalog)
-    bq / bigquery        - Google BigQuery (placeholder)
-    rs / redshift        - Amazon Redshift (placeholder)
+    bq / bigquery         - Google BigQuery
+    rs / redshift         - Amazon Redshift (placeholder)
 
 Configuration priority:
     1. Environment variable (DWH_PLATFORM)

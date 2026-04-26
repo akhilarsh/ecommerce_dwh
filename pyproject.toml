@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ecommerce_dwh"
 version = "1.0.0"
-description = "Programmatic data warehouse setup for e-commerce analytics (Snowflake, PostgreSQL, Databricks)"
+description = "Programmatic data warehouse setup for e-commerce analytics (Snowflake, PostgreSQL, Databricks, BigQuery)"
 requires-python = ">=3.10"
 
 dependencies = [
@@ -32,6 +32,18 @@ databricks = [
     "databricks-sql-connector>=3.0.0",
     "databricks-sdk>=0.20.0",
     "pyarrow>=14.0.0",
+]
+bigquery = [
+    "google-cloud-bigquery>=3.20.0",
+    "google-cloud-bigquery-storage>=2.24.0",
+    "pyarrow>=14.0.0",
+    "db-dtypes>=1.2.0",
+    # pandas-gbq is not imported directly by our loader (we use the NDJSON
+    # `load_table_from_file` path), but google-cloud-bigquery emits a
+    # FutureWarning whenever a DataFrame round-trips without it, and future
+    # versions will require it for `load_table_from_dataframe`. Pinning here
+    # keeps the venv quiet and forward-compatible.
+    "pandas-gbq>=0.26.1",
 ]
 dev = [
     "pytest>=7.4.0",

@@ -310,6 +310,8 @@ class TableSetupWorkflow(BaseWorkflow):
             platform_dir = "pg"
         elif platform in ("db", "dbx", "databricks"):
             platform_dir = "databricks"
+        elif platform in ("bq", "bigquery"):
+            platform_dir = "bigquery"
         else:
             platform_dir = "snowflake"
         views_dir = Path(__file__).parent.parent.parent / "outputs" / "generated_sql" / platform_dir
@@ -331,6 +333,9 @@ class TableSetupWorkflow(BaseWorkflow):
                 connector.execute_query(stmt.as_string(connector.connection))
             elif platform in ("db", "dbx", "databricks"):
                 connector.execute_query(f"USE SCHEMA `{schema}`")
+            elif platform in ("bq", "bigquery"):
+                # BigQuery has no `USE SCHEMA`; views must reference 3-part names.
+                pass
             else:
                 connector.execute_query(f"USE SCHEMA {schema}")
         except Exception as e:
@@ -386,13 +391,18 @@ class TableSetupWorkflow(BaseWorkflow):
         else:
             qualified_prefix = f"{creator.database_name}.{creator.schema_name}"
 
-        # Databricks DROP TABLE does not support CASCADE
-        cascade_clause = "" if creator.platform == "databricks" else " CASCADE"
+        # Databricks DROP TABLE does not support CASCADE; nor does BigQuery.
+        cascade_clause = (
+            "" if creator.platform in ("databricks", "bigquery") else " CASCADE"
+        )
 
         for table_name in drop_order:
             if table_name.lower() in [t.lower() for t in existing_tables]:
                 try:
-                    qualified_name = f"{qualified_prefix}.{table_name}"
+                    if creator.platform == "bigquery":
+                        qualified_name = f"`{qualified_prefix}.{table_name}`"
+                    else:
+                        qualified_name = f"{qualified_prefix}.{table_name}"
                     logger.info(f"Dropping table: {qualified_name}")
                     creator.connector.execute_query(
                         f"DROP TABLE IF EXISTS {qualified_name}{cascade_clause}"

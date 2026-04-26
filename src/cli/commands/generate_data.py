@@ -43,6 +43,37 @@ logger = get_logger(__name__)
 console = Console()
 
 
+def _resolve_qualified_schema(platform: str) -> str:
+    """
+    Build the schema reference the keys-loader should use for the active platform.
+
+    The keys loader builds queries as ``{schema}.{table}`` — so for BigQuery
+    and Databricks the "schema" must include the catalog/project so the
+    resulting query is fully qualified. For Snowflake and PostgreSQL a single
+    name is enough because the connector pins the catalog/database in the
+    session.
+    """
+    import os
+
+    if platform in ("sf", "snowflake"):
+        return os.getenv("SNOWFLAKE_SCHEMA", "ECOMMERCE_DWH")
+    if platform in ("pg", "postgres", "postgresql"):
+        return os.getenv("POSTGRES_SCHEMA", "public")
+    if platform in ("db", "dbx", "databricks"):
+        catalog = os.getenv("DATABRICKS_CATALOG", "main")
+        schema = os.getenv("DATABRICKS_SCHEMA", "ecommerce_dwh")
+        return f"{catalog}.{schema}"
+    if platform in ("bq", "bigquery"):
+        project = os.getenv("BIGQUERY_PROJECT", "")
+        dataset = os.getenv("BIGQUERY_DATASET", "ecommerce_dwh")
+        if not project:
+            raise ValueError("BIGQUERY_PROJECT must be set for BigQuery platform")
+        # The keys_loader wraps the full qualified name in backticks based on
+        # the connector's platform — pass plain "project.dataset" here.
+        return f"{project}.{dataset}"
+    raise ValueError(f"Unsupported platform: {platform}")
+
+
 # =============================================================================
 # INITIAL LOAD MODE
 # =============================================================================
@@ -499,13 +530,9 @@ def cache_keys_command(
         out_file = output_file or cfg.paths.keys_cache
 
         platform = get_dwh_platform()
-        is_snowflake = platform in ("sf", "snowflake")
 
         if schema is None:
-            if is_snowflake:
-                schema = os.getenv("SNOWFLAKE_SCHEMA", "ECOMMERCE_DWH")
-            else:
-                schema = os.getenv("POSTGRES_SCHEMA", "public")
+            schema = _resolve_qualified_schema(platform)
 
         console.print(f"\n[bold blue]Caching Keys from {platform.upper()}[/bold blue]\n")
 
@@ -520,7 +547,7 @@ def cache_keys_command(
                 console=console
             ) as progress:
                 progress.add_task("Loading keys...", total=None)
-                loader.load_from_snowflake(
+                loader.load_from_warehouse(
                     connector=conn,
                     schema=schema,
                     load_all_keys=True

@@ -52,6 +52,7 @@ def validate_command(
 
         is_snowflake = platform in ("sf", "snowflake")
         is_databricks = platform in ("db", "dbx", "databricks")
+        is_bigquery = platform in ("bq", "bigquery")
 
         with connector:
             # Get current database/catalog and schema (platform-specific —
@@ -64,13 +65,22 @@ def validate_command(
                 db_result = connector.execute_query(
                     "SELECT current_catalog() AS cat, current_schema() AS sch"
                 )
+            elif is_bigquery:
+                # BigQuery has no SESSION_USER concept of "current" project /
+                # dataset — it's defined on the client. Read from the connector.
+                db_result = [(connector.project, connector.dataset)]
             else:
                 db_result = connector.execute_query(
                     "SELECT current_database() AS db, current_schema() AS sch"
                 )
             if db_result:
                 database, schema = db_result[0]
-                label = "Catalog" if is_databricks else "Database"
+                if is_databricks:
+                    label = "Catalog"
+                elif is_bigquery:
+                    label = "Project"
+                else:
+                    label = "Database"
                 console.print(f"[dim]{label}: {database}[/dim]")
                 console.print(f"[dim]Schema: {schema}[/dim]\n")
 
@@ -107,6 +117,19 @@ def validate_command(
                     except Exception as e:
                         logger.debug(f"COUNT(*) failed for {tbl_lower}: {e}")
                         existing_tables[tbl_lower]["rows"] = 0
+            elif is_bigquery:
+                # BigQuery's legacy __TABLES__ exposes row_count + size_bytes
+                # but uses `table_id` (not `table_name`) as the column.
+                tables_query = f"""
+                    SELECT table_id, row_count, size_bytes
+                    FROM `{database}.{schema}.__TABLES__`
+                    ORDER BY table_id
+                """
+                result = connector.execute_query(tables_query)
+                existing_tables = (
+                    {row[0].lower(): {"rows": row[1], "bytes": row[2]} for row in result}
+                    if result else {}
+                )
             else:
                 tables_query = f"""
                     SELECT t.table_name, COALESCE(s.n_live_tup, 0), NULL
@@ -210,6 +233,7 @@ def status_command(verbose: bool = False) -> None:
         with connector:
             is_snowflake = platform in ("sf", "snowflake")
             is_databricks = platform in ("db", "dbx", "databricks")
+            is_bigquery = platform in ("bq", "bigquery")
             database = schema = None
 
             if is_snowflake:
@@ -236,6 +260,15 @@ def status_command(verbose: bool = False) -> None:
                     tree.add(f"Schema: [cyan]{schema or 'Not set'}[/cyan]")
                     console.print(tree)
                     console.print()
+            elif is_bigquery:
+                database = connector.project
+                schema = connector.dataset
+                tree = Tree("[bold]BigQuery Connection[/bold]")
+                tree.add(f"Project: [cyan]{database or 'Not set'}[/cyan]")
+                tree.add(f"Dataset: [cyan]{schema or 'Not set'}[/cyan]")
+                tree.add(f"Location: [cyan]{connector.location or 'Not set'}[/cyan]")
+                console.print(tree)
+                console.print()
             else:
                 result = connector.execute_query(
                     "SELECT current_database() AS db, current_schema() AS sch"
@@ -286,6 +319,18 @@ def status_command(verbose: bool = False) -> None:
                         except Exception:
                             pass
                     total_bytes = None
+                elif is_bigquery:
+                    summary_query = f"""
+                        SELECT COUNT(*) AS table_count,
+                               COALESCE(SUM(row_count), 0) AS total_rows,
+                               COALESCE(SUM(size_bytes), 0) AS total_bytes
+                        FROM `{database}.{schema}.__TABLES__`
+                    """
+                    result = connector.execute_query(summary_query)
+                    if result:
+                        table_count, total_rows, total_bytes = result[0]
+                    else:
+                        table_count, total_rows, total_bytes = 0, 0, 0
                 else:
                     count_query = f"""
                         SELECT COUNT(*)
@@ -353,6 +398,7 @@ def check_foreign_keys(
     """
     is_snowflake = platform in ("sf", "snowflake")
     is_databricks = platform in ("db", "dbx", "databricks")
+    is_bigquery = platform in ("bq", "bigquery")
 
     if is_snowflake:
         fk_query = f"""
@@ -393,6 +439,22 @@ def check_foreign_keys(
             WHERE tc.table_catalog = '{database}'
               AND tc.table_schema = '{schema}'
               AND tc.constraint_type = 'FOREIGN KEY'
+            ORDER BY tc.table_name
+        """
+    elif is_bigquery:
+        # BigQuery INFORMATION_SCHEMA is dataset-qualified: `project.dataset.INFORMATION_SCHEMA.X`.
+        fk_query = f"""
+            SELECT
+                tc.table_name,
+                tc.constraint_name,
+                kcu.column_name,
+                ccu.table_name AS referenced_table
+            FROM `{database}.{schema}.INFORMATION_SCHEMA.TABLE_CONSTRAINTS` tc
+            JOIN `{database}.{schema}.INFORMATION_SCHEMA.KEY_COLUMN_USAGE` kcu
+                ON tc.constraint_name = kcu.constraint_name
+            LEFT JOIN `{database}.{schema}.INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE` ccu
+                ON tc.constraint_name = ccu.constraint_name
+            WHERE tc.constraint_type = 'FOREIGN KEY'
             ORDER BY tc.table_name
         """
     else:
@@ -465,8 +527,11 @@ def check_table_data(
         True if data check passes
     """
     is_databricks = platform in ("db", "dbx", "databricks")
+    is_bigquery = platform in ("bq", "bigquery")
 
     def _qualify(tbl: str) -> str:
+        if is_bigquery and database:
+            return f"`{database}.{schema}.{tbl}`"
         if is_databricks and database:
             return f"{database}.{schema}.{tbl}"
         return f"{schema}.{tbl}"

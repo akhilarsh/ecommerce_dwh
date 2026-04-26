@@ -310,16 +310,20 @@ class DataGenerator:
             products_count=products_count
         )
     
-    def load_keys_from_snowflake(self, connector: Any, schema: str = "ECOMMERCE_DWH") -> None:
+    def load_keys_from_warehouse(self, connector: Any, schema: str = "ECOMMERCE_DWH") -> None:
         """
-        Load existing keys from Snowflake for incremental generation.
-        
+        Load existing keys from the active data warehouse for incremental generation.
+
         Args:
-            connector: Active SnowflakeConnector instance
+            connector: Active connector instance (any BaseConnector subclass)
             schema: Schema name
         """
-        self.logger.info("Loading keys from Snowflake")
-        self.keys_loader.load_from_snowflake(connector, schema=schema, load_all_keys=True)
+        platform = getattr(connector, "PLATFORM", "warehouse")
+        self.logger.info(f"Loading keys from {platform}")
+        self.keys_loader.load_from_warehouse(connector, schema=schema, load_all_keys=True)
+
+    # Back-compat alias.
+    load_keys_from_snowflake = load_keys_from_warehouse
     
     def load_keys_from_cache(self, cache_path: str) -> None:
         """

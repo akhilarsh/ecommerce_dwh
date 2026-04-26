@@ -3,9 +3,10 @@ Connector factory for creating DWH connectors based on platform type.
 
 Supported platforms:
 - sf / snowflake: Snowflake Data Cloud
-- bq / bigquery: Google BigQuery (placeholder)
+- pg / postgres: PostgreSQL
+- db / dbx / databricks: Databricks (Unity Catalog)
+- bq / bigquery: Google BigQuery
 - rs / redshift: Amazon Redshift (placeholder)
-- db / databricks: Databricks (placeholder)
 """
 
 from typing import Dict, Optional, Type
@@ -14,6 +15,7 @@ from src.connectors.base_connector import BaseConnector
 from src.connectors.snowflake_connector import SnowflakeConnector
 from src.connectors.postgres_connector import PostgresConnector
 from src.connectors.databricks_connector import DatabricksConnector
+from src.connectors.bigquery_connector import BigQueryConnector
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -35,9 +37,9 @@ DWH_REGISTRY: Dict[str, Type[BaseConnector]] = {
     "dbx": DatabricksConnector,
     "databricks": DatabricksConnector,
 
-    # BigQuery (placeholder - implement BigQueryConnector)
-    # "bq": BigQueryConnector,
-    # "bigquery": BigQueryConnector,
+    # BigQuery
+    "bq": BigQueryConnector,
+    "bigquery": BigQueryConnector,
 
     # Redshift (placeholder - implement RedshiftConnector)
     # "rs": RedshiftConnector,

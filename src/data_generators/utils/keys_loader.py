@@ -1,5 +1,8 @@
 """
-Load existing surrogate keys from Snowflake for incremental data generation.
+Load existing surrogate keys from a data warehouse for incremental data generation.
+
+Works against any connector implementing BaseConnector (Snowflake, PostgreSQL,
+Databricks, BigQuery, etc.).
 
 Supports:
 - Loading max key values for key sequencing
@@ -91,31 +94,36 @@ TABLE_KEY_COLUMNS = {
 
 class ExistingKeysLoader:
     """
-    Loads existing surrogate keys from Snowflake for incremental generation.
-    
+    Loads existing surrogate keys from the active data warehouse for
+    incremental generation.
+
+    Works against any connector implementing BaseConnector — Snowflake,
+    PostgreSQL, Databricks, BigQuery, etc. Each platform's qualified-naming
+    rules are handled by the connector itself; this loader only emits
+    plain `schema.table` references.
+
     Supports:
     - Loading max key values for key sequencing
     - Loading valid FK keys for referential integrity
     - Caching keys locally for offline generation
-    
+
     Usage:
-        # From Snowflake
         loader = ExistingKeysLoader()
-        loader.load_from_snowflake(connector, ["dim_customers", "dim_products"])
+        loader.load_from_warehouse(connector, ["dim_customers"])
         next_key = loader.get_next_key("dim_customers")
-        
+
         # From cache
         loader = ExistingKeysLoader()
         loader.load_from_cache("keys_cache.json")
     """
-    
+
     def __init__(self):
         """Initialize the keys loader."""
         self.logger = get_logger("generator.keys_loader")
         self._key_cache: Dict[str, KeyInfo] = {}
         self._loaded_from: Optional[str] = None
-    
-    def load_from_snowflake(
+
+    def load_from_warehouse(
         self,
         connector: Any,
         tables: Optional[List[str]] = None,
@@ -123,16 +131,20 @@ class ExistingKeysLoader:
         load_all_keys: bool = False
     ) -> None:
         """
-        Load key information from Snowflake.
-        
+        Load key information from the active data warehouse.
+
         Args:
-            connector: Active SnowflakeConnector instance
+            connector: Active connector instance (any BaseConnector subclass)
             tables: List of tables to load keys for (all if None)
-            schema: Schema name
+            schema: Schema name (must be qualified for the platform —
+                    on BigQuery this should be `project.dataset`)
             load_all_keys: If True, load all valid keys (slower but complete)
         """
         tables_to_load = tables or list(TABLE_KEY_COLUMNS.keys())
-        self.logger.info(f"Loading keys from Snowflake for {len(tables_to_load)} tables")
+        platform = getattr(connector, "PLATFORM", "warehouse")
+        self.logger.info(
+            f"Loading keys from {platform} for {len(tables_to_load)} tables"
+        )
         
         for table_name in tables_to_load:
             key_column = TABLE_KEY_COLUMNS.get(table_name)
@@ -142,11 +154,12 @@ class ExistingKeysLoader:
             
             try:
                 # Get max key and count
+                qualified = _qualify_table(connector, schema, table_name)
                 query = f"""
-                    SELECT 
+                    SELECT
                         COALESCE(MAX({key_column}), 0) as max_key,
                         COUNT(*) as row_count
-                    FROM {schema}.{table_name}
+                    FROM {qualified}
                 """
                 result = connector.execute_query(query)
                 
@@ -162,7 +175,7 @@ class ExistingKeysLoader:
                 if load_all_keys and row_count > 0 and row_count <= 100000:
                     keys_query = f"""
                         SELECT {key_column}
-                        FROM {schema}.{table_name}
+                        FROM {qualified}
                         ORDER BY {key_column}
                     """
                     keys_result = connector.execute_query(keys_query)
@@ -190,8 +203,13 @@ class ExistingKeysLoader:
                     row_count=0,
                 )
         
-        self._loaded_from = "snowflake"
-        self.logger.info(f"Loaded keys for {len(self._key_cache)} tables from Snowflake")
+        self._loaded_from = platform
+        self.logger.info(
+            f"Loaded keys for {len(self._key_cache)} tables from {platform}"
+        )
+
+    # Back-compat alias for callers still using the old Snowflake-specific name.
+    load_from_snowflake = load_from_warehouse
     
     def load_from_cache(self, cache_file: str) -> None:
         """
@@ -423,3 +441,38 @@ class ExistingKeysLoader:
         
         self._loaded_from = "initialized_empty"
         self.logger.info(f"Initialized {len(self._key_cache)} tables with empty state")
+
+
+
+def _qualify_table(connector: Any, schema: str, table_name: str) -> str:
+    """
+    Build a fully-qualified, platform-correct table reference.
+
+    The keys_loader cannot use plain f"{schema}.{table_name}" because BigQuery
+    requires backticks around any identifier with a hyphen (e.g. project ids
+    like `ecommerce-db-494418`). Databricks accepts backticks too, and other
+    platforms tolerate them in standard SQL.
+
+    Args:
+        connector: Active connector — used to read the platform identifier.
+        schema:    Schema reference. For BigQuery callers should pass
+                   "project.dataset"; for Databricks "catalog.schema"; for
+                   Snowflake/PostgreSQL just "schema".
+        table_name: Bare table name.
+
+    Returns:
+        A SQL fragment usable directly in a FROM clause.
+    """
+    platform = getattr(connector, "PLATFORM", "")
+    if platform == "bigquery":
+        # BigQuery: `project.dataset.table` — single backtick pair around
+        # the full 3-part name.
+        return f"`{schema}.{table_name}`"
+    if platform == "databricks":
+        # Databricks: `catalog`.`schema`.`table` works, but the keys_loader
+        # is given "catalog.schema" as one string — wrap each segment.
+        if "." in schema:
+            catalog, sch = schema.split(".", 1)
+            return f"`{catalog}`.`{sch}`.`{table_name}`"
+        return f"`{schema}`.`{table_name}`"
+    return f"{schema}.{table_name}"
