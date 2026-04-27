@@ -8,7 +8,7 @@ Supported platforms:
 - pg / postgres: PostgreSQL
 - db / dbx / databricks: Databricks (Unity Catalog)
 - bq / bigquery: Google BigQuery
-- rs / redshift: Amazon Redshift (placeholder)
+- rs / redshift: Amazon Redshift
 
 Usage:
     from src.connectors import get_connector
@@ -35,6 +35,7 @@ from src.connectors.snowflake_connector import SnowflakeConnector
 from src.connectors.postgres_connector import PostgresConnector
 from src.connectors.databricks_connector import DatabricksConnector
 from src.connectors.bigquery_connector import BigQueryConnector
+from src.connectors.redshift_connector import RedshiftConnector
 
 __all__ = [
     "BaseConnector",
@@ -42,6 +43,7 @@ __all__ = [
     "PostgresConnector",
     "DatabricksConnector",
     "BigQueryConnector",
+    "RedshiftConnector",
     "get_connector",
     "list_supported_dwh",
     "get_dwh_display_name",

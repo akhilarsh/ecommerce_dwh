@@ -16,7 +16,7 @@ Supported DWH platforms (shorthand / full name):
     pg / postgres         - PostgreSQL
     db / dbx / databricks - Databricks (Unity Catalog)
     bq / bigquery         - Google BigQuery
-    rs / redshift         - Amazon Redshift (placeholder)
+    rs / redshift         - Amazon Redshift
 
 Configuration priority:
     1. Environment variable (DWH_PLATFORM)

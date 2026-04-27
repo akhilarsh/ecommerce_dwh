@@ -53,6 +53,7 @@ def validate_command(
         is_snowflake = platform in ("sf", "snowflake")
         is_databricks = platform in ("db", "dbx", "databricks")
         is_bigquery = platform in ("bq", "bigquery")
+        is_redshift = platform in ("rs", "redshift")
 
         with connector:
             # Get current database/catalog and schema (platform-specific —
@@ -130,6 +131,30 @@ def validate_command(
                     {row[0].lower(): {"rows": row[1], "bytes": row[2]} for row in result}
                     if result else {}
                 )
+            elif is_redshift:
+                # Redshift has no pg_stat_user_tables; size lives in
+                # SVV_TABLE_INFO. Row counts are filled in per-table below.
+                tables_query = f"""
+                    SELECT table_name
+                    FROM information_schema.tables
+                    WHERE table_schema = '{schema}'
+                      AND table_type = 'BASE TABLE'
+                    ORDER BY table_name
+                """
+                result = connector.execute_query(tables_query)
+                existing_tables = {
+                    row[0].lower(): {"rows": None, "bytes": None}
+                    for row in result
+                } if result else {}
+                for tbl_lower in list(existing_tables.keys()):
+                    try:
+                        r = connector.execute_query(
+                            f'SELECT COUNT(*) FROM "{schema}"."{tbl_lower}"'
+                        )
+                        existing_tables[tbl_lower]["rows"] = r[0][0] if r else 0
+                    except Exception as e:
+                        logger.debug(f"COUNT(*) failed for {tbl_lower}: {e}")
+                        existing_tables[tbl_lower]["rows"] = 0
             else:
                 tables_query = f"""
                     SELECT t.table_name, COALESCE(s.n_live_tup, 0), NULL
@@ -269,6 +294,17 @@ def status_command(verbose: bool = False) -> None:
                 tree.add(f"Location: [cyan]{connector.location or 'Not set'}[/cyan]")
                 console.print(tree)
                 console.print()
+            elif is_redshift:
+                result = connector.execute_query(
+                    "SELECT current_database() AS db, current_schema() AS sch"
+                )
+                if result:
+                    database, schema = result[0]
+                    tree = Tree("[bold]Redshift Connection[/bold]")
+                    tree.add(f"Database: [cyan]{database or 'Not set'}[/cyan]")
+                    tree.add(f"Schema: [cyan]{schema or 'Not set'}[/cyan]")
+                    console.print(tree)
+                    console.print()
             else:
                 result = connector.execute_query(
                     "SELECT current_database() AS db, current_schema() AS sch"
@@ -331,6 +367,25 @@ def status_command(verbose: bool = False) -> None:
                         table_count, total_rows, total_bytes = result[0]
                     else:
                         table_count, total_rows, total_bytes = 0, 0, 0
+                elif is_redshift:
+                    count_query = f"""
+                        SELECT COUNT(*)
+                        FROM information_schema.tables
+                        WHERE table_schema = '{schema}'
+                          AND table_type = 'BASE TABLE'
+                    """
+                    count_result = connector.execute_query(count_query)
+                    table_count = count_result[0][0] if count_result else 0
+                    total_rows = 0
+                    for tbl in [t.table_name for t in schema_manager.all_tables]:
+                        try:
+                            r = connector.execute_query(
+                                f'SELECT COUNT(*) FROM "{schema}"."{tbl}"'
+                            )
+                            total_rows += r[0][0] if r else 0
+                        except Exception:
+                            pass
+                    total_bytes = None
                 else:
                     count_query = f"""
                         SELECT COUNT(*)

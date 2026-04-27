@@ -71,6 +71,8 @@ def _resolve_qualified_schema(platform: str) -> str:
         # The keys_loader wraps the full qualified name in backticks based on
         # the connector's platform — pass plain "project.dataset" here.
         return f"{project}.{dataset}"
+    if platform in ("rs", "redshift"):
+        return os.getenv("REDSHIFT_SCHEMA", "ecommerce_dwh")
     raise ValueError(f"Unsupported platform: {platform}")
 
 

@@ -76,6 +76,10 @@ def setup_tables_command(
                     )
             elif platform_lower in ("databricks", "db", "dbx"):
                 schema_name = schema or os.getenv("DATABRICKS_SCHEMA") or "ecommerce_dwh"
+            elif platform_lower in ("bigquery", "bq"):
+                schema_name = schema or os.getenv("BIGQUERY_DATASET") or "ecommerce_dwh"
+            elif platform_lower in ("redshift", "rs"):
+                schema_name = schema or os.getenv("REDSHIFT_SCHEMA") or "ecommerce_dwh"
             else:
                 schema_name = schema or os.getenv("POSTGRES_SCHEMA") or "public"
             views_result = workflow.create_views(connector, platform, schema_name)

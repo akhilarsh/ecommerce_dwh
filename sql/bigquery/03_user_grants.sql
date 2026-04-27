@@ -7,7 +7,7 @@
 -- Location : US
 --
 -- Service account (recommended for programmatic deployment + ingestion):
---          ecommerce-dwh@ecommerce-db.iam.gserviceaccount.com
+--          ecommerce-user@ecommerce-db.iam.gserviceaccount.com
 --
 -- Run order:
 --   1. Project owner / IAM admin creates the service account            (Section 1)
@@ -31,16 +31,16 @@
 -- created outside SQL.
 --
 --   Option A — gcloud CLI:
---     gcloud iam service-accounts create ecommerce-dwh \
+--     gcloud iam service-accounts create ecommerce-user \
 --       --project=ecommerce-db \
 --       --display-name="E-Commerce DWH deployment + ingestion SA"
 --
---     gcloud iam service-accounts keys create ~/ecommerce-dwh-key.json \
---       --iam-account=ecommerce-dwh@ecommerce-db.iam.gserviceaccount.com
+--     gcloud iam service-accounts keys create ~/ecommerce-user-key.json \
+--       --iam-account=ecommerce-user@ecommerce-db.iam.gserviceaccount.com
 --
 --   Option B — Cloud Console:
 --     IAM & Admin > Service Accounts > + CREATE SERVICE ACCOUNT
---       Name: ecommerce-dwh
+--       Name: ecommerce-user
 --       Project: ecommerce-db
 --     Then: <service account> > Keys > ADD KEY > Create new key (JSON)
 --
@@ -59,12 +59,12 @@
 --
 --   Option A — gcloud CLI:
 --     gcloud projects add-iam-policy-binding ecommerce-db \
---       --member="serviceAccount:ecommerce-dwh@ecommerce-db.iam.gserviceaccount.com" \
+--       --member="serviceAccount:ecommerce-user@ecommerce-db.iam.gserviceaccount.com" \
 --       --role="roles/bigquery.jobUser"
 --
 --   Option B — Cloud Console:
 --     IAM & Admin > IAM > +GRANT ACCESS
---       Principal: ecommerce-dwh@ecommerce-db.iam.gserviceaccount.com
+--       Principal: ecommerce-user@ecommerce-db.iam.gserviceaccount.com
 --       Role: BigQuery Job User
 
 
@@ -95,12 +95,12 @@ OPTIONS (
 
 GRANT `roles/bigquery.dataEditor`
 ON SCHEMA `ecommerce-db.e_mart`
-TO "serviceAccount:ecommerce-dwh@ecommerce-db.iam.gserviceaccount.com";
+TO "serviceAccount:ecommerce-user@ecommerce-db.iam.gserviceaccount.com";
 
 -- Option B — bq CLI / Console:
 --   bq update --source <(jq '.access += [{
 --     "role": "roles/bigquery.dataEditor",
---     "userByEmail": "ecommerce-dwh@ecommerce-db.iam.gserviceaccount.com"
+--     "userByEmail": "ecommerce-user@ecommerce-db.iam.gserviceaccount.com"
 --   }]' <(bq show --format=prettyjson ecommerce-db:e_mart)) ecommerce-db:e_mart
 --
 -- Or via the Console:

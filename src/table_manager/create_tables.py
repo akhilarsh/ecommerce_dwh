@@ -94,6 +94,13 @@ class TableCreator:
                 raise ValueError("BIGQUERY_PROJECT environment variable is required")
             return db, schema
 
+        if self.platform == "redshift":
+            db = (database_name or os.getenv("REDSHIFT_DATABASE", "")).lower()
+            schema = (schema_name or os.getenv("REDSHIFT_SCHEMA", "ecommerce_dwh")).lower()
+            if not db:
+                raise ValueError("REDSHIFT_DATABASE environment variable is required")
+            return db, schema
+
         raise ValueError(f"Unsupported platform: {self.platform}")
 
     # ------------------------------------------------------------------
@@ -139,6 +146,8 @@ class TableCreator:
                 self._verify_databricks(status)
             elif self.platform == "bigquery":
                 self._verify_bigquery(status)
+            elif self.platform == "redshift":
+                self._verify_redshift(status)
 
             if not status["connection_ok"] or not status["database_exists"] or not status["schema_exists"]:
                 return status
@@ -281,6 +290,33 @@ class TableCreator:
         except NotFound:
             logger.warning(f"  ✗ Dataset '{self.schema_name}' NOT FOUND")
 
+    def _verify_redshift(self, status: Dict[str, Any]) -> None:
+        logger.info("Testing Redshift connection...")
+        result = self.connector.execute_query(
+            "SELECT current_user, current_database()"
+        )
+        if result:
+            user, database = result[0]
+            logger.info(f"  ✓ Connected as user: {user}")
+            logger.info(f"  ✓ Database: {database}")
+            status["connection_ok"] = True
+
+        # Redshift connection is bound to a single database.
+        status["database_exists"] = True
+        self.pre_creation_status["database_available"] = True
+
+        logger.info(f"\nChecking schema: {self.schema_name}")
+        schema_check = self.connector.execute_query(
+            "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s",
+            (self.schema_name,),
+        )
+        if schema_check and len(schema_check) > 0:
+            logger.info(f"  ✓ Schema '{self.schema_name}' exists")
+            status["schema_exists"] = True
+            self.pre_creation_status["schema_exists"] = True
+        else:
+            logger.warning(f"  ✗ Schema '{self.schema_name}' NOT FOUND")
+
     def _verify_postgres(self, status: Dict[str, Any]) -> None:
         logger.info("Testing PostgreSQL connection...")
         result = self.connector.execute_query("SELECT current_user, current_database()")
@@ -330,6 +366,9 @@ class TableCreator:
                 # BigQuery has no `USE PROJECT` concept — the client is bound
                 # to the project at connection time.
                 logger.info(f"BigQuery project bound at connection: {self.database_name}")
+            elif self.platform == "redshift":
+                # Redshift connection is already bound to a single database.
+                logger.info(f"Redshift database bound at connection: {self.database_name}")
             # PG: no-op — already connected to the database
             logger.info(f"✓ Database '{self.database_name}' ready")
             self.stats["database_exists"] = True
@@ -372,6 +411,13 @@ class TableCreator:
                     f"BigQuery dataset will be referenced as "
                     f"`{self.database_name}.{self.schema_name}`"
                 )
+
+            elif self.platform == "redshift":
+                logger.info(f"Setting search_path to: {self.schema_name}")
+                self.connector.execute_query(
+                    f'SET search_path TO "{self.schema_name}", public'
+                )
+                self.connector.commit()
 
             logger.info(f"✓ Schema '{self.schema_name}' ready")
             self.stats["schema_exists"] = True
@@ -433,6 +479,22 @@ class TableCreator:
                 scripts.append(create_sql)
             return scripts
 
+        if self.platform == "redshift":
+            from src.sql_generator.rs_ddl_adapter import generate_rs_create_table
+
+            tables = self.schema_manager.all_tables
+            if table_filter:
+                tables = [t for t in tables if t.table_name.lower() == table_filter.lower()]
+
+            scripts: List[str] = []
+            for table in tables:
+                create_sql, comment_stmts = generate_rs_create_table(
+                    table, self.schema_name
+                )
+                scripts.append(create_sql)
+                scripts.extend(comment_stmts)
+            return scripts
+
         return self.schema_manager.get_create_table_scripts(table_filter)
 
     def _get_fk_scripts(self, table_filter: Optional[str] = None) -> List[str]:
@@ -481,6 +543,18 @@ class TableCreator:
                 )
             return scripts
 
+        if self.platform == "redshift":
+            from src.sql_generator.rs_ddl_adapter import generate_rs_foreign_keys
+
+            tables = self.schema_manager.all_tables
+            if table_filter:
+                tables = [t for t in tables if t.table_name.lower() == table_filter.lower()]
+
+            scripts: List[str] = []
+            for table in tables:
+                scripts.extend(generate_rs_foreign_keys(table, self.schema_name))
+            return scripts
+
         return self.schema_manager.get_foreign_key_scripts(table_filter)
 
     def create_tables(self, table_filter: Optional[str] = None) -> bool:
@@ -513,7 +587,7 @@ class TableCreator:
             if sql.strip().upper().startswith("COMMENT ON"):
                 try:
                     self.connector.execute_query(sql)
-                    if self.platform == "postgres":
+                    if self.platform in ("postgres", "redshift"):
                         self.connector.commit()
                 except Exception:
                     pass  # non-critical
@@ -529,7 +603,7 @@ class TableCreator:
             try:
                 logger.info(f"[{i}/{len(create_scripts)}] Creating table: {table_name}")
                 self.connector.execute_query(sql)
-                if self.platform == "postgres":
+                if self.platform in ("postgres", "redshift"):
                     self.connector.commit()
                 self.stats["tables_created"] += 1
                 self.stats["new_tables_created"].append(table_name)
@@ -539,14 +613,14 @@ class TableCreator:
                 error_str = str(e)
                 if "already exists" in error_str.lower() or "42710" in error_str or "42P07" in error_str:
                     logger.info(f"⊘ Table '{table_name}' already exists, skipping")
-                    if self.platform == "postgres":
+                    if self.platform in ("postgres", "redshift"):
                         self.connector.rollback()
                     skipped += 1
                     continue
 
                 error_msg = f"Failed to create table '{table_name}': {e}"
                 logger.error(f"✗ {error_msg}")
-                if self.platform == "postgres":
+                if self.platform in ("postgres", "redshift"):
                     self.connector.rollback()
                 self.stats["tables_failed"] += 1
                 self.stats["errors"].append(error_msg)
@@ -588,6 +662,14 @@ class TableCreator:
                 )
                 return [row[0] for row in result] if result else []
 
+            if self.platform == "redshift":
+                result = self.connector.execute_query(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema = %s",
+                    (self.schema_name,),
+                )
+                return [row[0] for row in result] if result else []
+
             return []
         except Exception as e:
             logger.error(f"Failed to query existing tables: {e}")
@@ -620,7 +702,7 @@ class TableCreator:
             try:
                 logger.info(f"[{i}/{len(fk_scripts)}] Adding FK: {constraint_info}")
                 self.connector.execute_query(sql)
-                if self.platform == "postgres":
+                if self.platform in ("postgres", "redshift"):
                     self.connector.commit()
                 self.stats["constraints_applied"] += 1
                 logger.info("✓ Foreign key added successfully")
@@ -629,14 +711,14 @@ class TableCreator:
                 error_str = str(e)
                 if "already exists" in error_str.lower() or "42710" in error_str or "42710" in error_str:
                     logger.info(f"⊘ Foreign key '{constraint_info}' already exists, skipping")
-                    if self.platform == "postgres":
+                    if self.platform in ("postgres", "redshift"):
                         self.connector.rollback()
                     skipped += 1
                     continue
 
                 error_msg = f"Failed to add foreign key '{constraint_info}': {e}"
                 logger.error(f"✗ {error_msg}")
-                if self.platform == "postgres":
+                if self.platform in ("postgres", "redshift"):
                     self.connector.rollback()
                 self.stats["constraints_failed"] += 1
                 self.stats["errors"].append(error_msg)
@@ -685,6 +767,12 @@ class TableCreator:
                         f"SELECT COUNT(*) FROM "
                         f"`{self.database_name}.{self.schema_name}.INFORMATION_SCHEMA.TABLES` "
                         f"WHERE table_name = '{tbl}'"
+                    )
+                elif self.platform == "redshift":
+                    result = self.connector.execute_query(
+                        "SELECT COUNT(*) FROM information_schema.tables "
+                        "WHERE table_schema = %s AND table_name = %s",
+                        (self.schema_name, tbl),
                     )
                 else:
                     result = None

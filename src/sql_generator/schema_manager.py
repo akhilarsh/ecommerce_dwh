@@ -210,6 +210,9 @@ class SchemaManager:
         if platform in ("bq", "bigquery"):
             return self._save_bq_scripts(output_dir)
 
+        if platform in ("rs", "redshift"):
+            return self._save_rs_scripts(output_dir)
+
         # Snowflake (default)
         sf_dir = os.path.join(output_dir, "snowflake")
         os.makedirs(sf_dir, exist_ok=True)
@@ -361,6 +364,56 @@ class SchemaManager:
         Path(drop_file).write_text("\n\n".join(drop_stmts))
 
         logger.info(f"BigQuery SQL scripts saved to {bq_dir}/")
+
+        return {
+            "drop_tables": drop_file,
+            "create_tables": create_file,
+            "foreign_keys": fk_file,
+        }
+
+    def _save_rs_scripts(self, output_dir: str):
+        """Save Redshift DDL scripts."""
+        import os
+        from src.sql_generator.rs_ddl_adapter import (
+            generate_rs_create_schema,
+            generate_rs_create_table,
+            generate_rs_drop_table,
+            generate_rs_foreign_keys,
+        )
+
+        schema = os.getenv("REDSHIFT_SCHEMA", "ecommerce_dwh")
+        rs_dir = os.path.join(output_dir, "redshift")
+        os.makedirs(rs_dir, exist_ok=True)
+
+        create_stmts: List[str] = [generate_rs_create_schema(schema)]
+        comment_stmts: List[str] = []
+        for table in self.all_tables:
+            create_sql, comments = generate_rs_create_table(table, schema)
+            create_stmts.append(create_sql)
+            comment_stmts.extend(comments)
+
+        create_file = os.path.join(rs_dir, "01_create_tables.sql")
+        Path(create_file).write_text("\n\n".join(create_stmts))
+
+        fk_stmts: List[str] = []
+        for table in self.all_tables:
+            fk_stmts.extend(generate_rs_foreign_keys(table, schema))
+        fk_file = os.path.join(rs_dir, "02_foreign_keys.sql")
+        Path(fk_file).write_text(
+            "\n\n".join(fk_stmts) if fk_stmts else "-- No foreign keys"
+        )
+
+        drop_stmts = [
+            generate_rs_drop_table(t, schema) for t in reversed(self.all_tables)
+        ]
+        drop_file = os.path.join(rs_dir, "00_drop_tables.sql")
+        Path(drop_file).write_text("\n\n".join(drop_stmts))
+
+        if comment_stmts:
+            comments_file = os.path.join(rs_dir, "03_comments.sql")
+            Path(comments_file).write_text("\n".join(comment_stmts))
+
+        logger.info(f"Redshift SQL scripts saved to {rs_dir}/")
 
         return {
             "drop_tables": drop_file,

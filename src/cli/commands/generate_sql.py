@@ -34,6 +34,8 @@ PLATFORM_ALIASES = {
     "databricks": "databricks",
     "bq": "bigquery",
     "bigquery": "bigquery",
+    "rs": "redshift",
+    "redshift": "redshift",
 }
 
 PLATFORM_SUBDIRS = {
@@ -41,6 +43,7 @@ PLATFORM_SUBDIRS = {
     "pg": "pg",
     "databricks": "databricks",
     "bigquery": "bigquery",
+    "redshift": "redshift",
 }
 
 
@@ -129,7 +132,7 @@ def generate_sql_command(
 
 def _resolve_platforms(platform: Optional[str], all_platforms: bool) -> List[str]:
     if all_platforms:
-        return ["snowflake", "pg", "databricks", "bigquery"]
+        return ["snowflake", "pg", "databricks", "bigquery", "redshift"]
 
     if platform:
         normalized = PLATFORM_ALIASES.get(platform.lower())
@@ -167,6 +170,7 @@ def _generate_for_platform(
         "pg": "PostgreSQL",
         "databricks": "Databricks",
         "bigquery": "BigQuery",
+        "redshift": "Redshift",
     }
     label = labels.get(platform, platform)
 
@@ -185,6 +189,10 @@ def _generate_for_platform(
     elif platform == "bigquery":
         files_generated.extend(
             _generate_bq(plat_path, schema_manager, tables_to_process, table_name, include_drops, progress, label)
+        )
+    elif platform == "redshift":
+        files_generated.extend(
+            _generate_rs(plat_path, schema_manager, tables_to_process, table_name, include_drops, progress, label)
         )
 
     return files_generated
@@ -448,6 +456,83 @@ def _generate_bq(
         fk_file.write_text("\n\n".join(fk_scripts))
         files.append((label, fk_file.name, "Foreign key constraints"))
     progress.remove_task(task)
+
+    return files
+
+
+def _generate_rs(
+    plat_path: Path,
+    schema_manager: SchemaManager,
+    tables_to_process,
+    table_name: Optional[str],
+    include_drops: bool,
+    progress: Progress,
+    label: str,
+) -> List[Tuple[str, str, str]]:
+    import os
+    from src.sql_generator.rs_ddl_adapter import (
+        generate_rs_create_schema,
+        generate_rs_create_table,
+        generate_rs_drop_table,
+        generate_rs_foreign_keys,
+    )
+
+    schema = os.getenv("REDSHIFT_SCHEMA", "ecommerce_dwh")
+    files: List[Tuple[str, str, str]] = []
+
+    if include_drops:
+        task = progress.add_task(f"[{label}] DROP statements...", total=None)
+        drop_scripts = [
+            generate_rs_drop_table(t, schema)
+            for t in reversed(list(tables_to_process))
+        ]
+        if table_name:
+            drop_file = plat_path / f"00_drop_{table_name}.sql"
+        else:
+            drop_file = plat_path / "00_drop_tables.sql"
+        drop_file.write_text("\n\n".join(drop_scripts))
+        files.append((label, drop_file.name, "DROP TABLE statements"))
+        progress.remove_task(task)
+
+    task = progress.add_task(f"[{label}] CREATE TABLE statements...", total=None)
+    create_stmts: List[str] = [generate_rs_create_schema(schema)]
+    comment_stmts: List[str] = []
+    for t in tables_to_process:
+        create_sql, comments = generate_rs_create_table(t, schema)
+        create_stmts.append(create_sql)
+        comment_stmts.extend(comments)
+
+    if table_name:
+        create_file = plat_path / f"01_create_{table_name}.sql"
+    else:
+        create_file = plat_path / "01_create_tables.sql"
+    create_file.write_text("\n\n".join(create_stmts))
+    files.append((label, create_file.name, "CREATE TABLE statements"))
+    progress.remove_task(task)
+
+    task = progress.add_task(f"[{label}] Foreign keys...", total=None)
+    fk_scripts: List[str] = []
+    for t in tables_to_process:
+        fk_scripts.extend(generate_rs_foreign_keys(t, schema))
+
+    if fk_scripts:
+        if table_name:
+            fk_file = plat_path / f"02_foreign_keys_{table_name}.sql"
+        else:
+            fk_file = plat_path / "02_foreign_keys.sql"
+        fk_file.write_text("\n\n".join(fk_scripts))
+        files.append((label, fk_file.name, "Foreign key constraints"))
+    progress.remove_task(task)
+
+    if comment_stmts:
+        task = progress.add_task(f"[{label}] Comments...", total=None)
+        if table_name:
+            comments_file = plat_path / f"03_comments_{table_name}.sql"
+        else:
+            comments_file = plat_path / "03_comments.sql"
+        comments_file.write_text("\n".join(comment_stmts))
+        files.append((label, comments_file.name, "COMMENT ON statements"))
+        progress.remove_task(task)
 
     return files
 

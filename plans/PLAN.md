@@ -160,8 +160,9 @@ For detailed documentation of each phase, see the individual phase files in this
 | 10 | PostgreSQL Support | ✅ Complete | [phase10_postgres.md](phase10_postgres.md) |
 | 11 | Databricks Support | ✅ Complete | [phase11_databricks.md](phase11_databricks.md) |
 | 12 | BigQuery Support | ✅ Complete | [phase12_bigquery.md](phase12_bigquery.md) |
+| 13 | Redshift Support | ✅ Code complete (smoke test pending) | [phase13_redshift.md](phase13_redshift.md) |
 
-**Completion:** 12/12 Phases (100%)
+**Completion:** 13/13 Phases (100%)
 
 ---
 
@@ -312,6 +313,9 @@ Pre-built SQL queries for customer segmentation and marketing audiences in `outp
 | BigQuery Connector | ✅ | `src/connectors/bigquery_connector.py` |
 | BigQuery Loader | ✅ | `src/data_loaders/bigquery_loader.py` |
 | BigQuery DDL Adapter | ✅ | `src/sql_generator/bq_ddl_adapter.py` |
+| Redshift Connector | ✅ | `src/connectors/redshift_connector.py` |
+| Redshift Loader | ✅ | `src/data_loaders/redshift_loader.py` |
+| Redshift DDL Adapter | ✅ | `src/sql_generator/rs_ddl_adapter.py` |
 | Connector/Loader Factories | ✅ | `src/connectors/factory.py`, `src/data_loaders/factory.py` |
 
 ---

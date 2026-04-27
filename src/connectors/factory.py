@@ -6,7 +6,7 @@ Supported platforms:
 - pg / postgres: PostgreSQL
 - db / dbx / databricks: Databricks (Unity Catalog)
 - bq / bigquery: Google BigQuery
-- rs / redshift: Amazon Redshift (placeholder)
+- rs / redshift: Amazon Redshift
 """
 
 from typing import Dict, Optional, Type
@@ -16,6 +16,7 @@ from src.connectors.snowflake_connector import SnowflakeConnector
 from src.connectors.postgres_connector import PostgresConnector
 from src.connectors.databricks_connector import DatabricksConnector
 from src.connectors.bigquery_connector import BigQueryConnector
+from src.connectors.redshift_connector import RedshiftConnector
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -41,9 +42,9 @@ DWH_REGISTRY: Dict[str, Type[BaseConnector]] = {
     "bq": BigQueryConnector,
     "bigquery": BigQueryConnector,
 
-    # Redshift (placeholder - implement RedshiftConnector)
-    # "rs": RedshiftConnector,
-    # "redshift": RedshiftConnector,
+    # Redshift
+    "rs": RedshiftConnector,
+    "redshift": RedshiftConnector,
 }
 
 # Default DWH platform

@@ -52,7 +52,12 @@ def get_loader(
         logger.info("Creating BigQuery data loader")
         return BigQueryLoader(connector, config)
 
+    if platform == "redshift":
+        from src.data_loaders.redshift_loader import RedshiftLoader
+        logger.info("Creating Redshift data loader")
+        return RedshiftLoader(connector, config)
+
     raise ValueError(
         f"No data loader available for platform: '{platform}'. "
-        f"Supported: snowflake, postgres, databricks, bigquery"
+        f"Supported: snowflake, postgres, databricks, bigquery, redshift"
     )

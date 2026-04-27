@@ -34,6 +34,7 @@ from src.data_loaders.snowflake_loader import SnowflakeLoader
 from src.data_loaders.postgres_loader import PostgresLoader
 from src.data_loaders.databricks_loader import DatabricksLoader
 from src.data_loaders.bigquery_loader import BigQueryLoader
+from src.data_loaders.redshift_loader import RedshiftLoader
 from src.data_loaders.factory import get_loader
 from src.data_loaders.load_orchestrator import (
     DataLoadOrchestrator,
@@ -54,6 +55,7 @@ __all__ = [
     "PostgresLoader",
     "DatabricksLoader",
     "BigQueryLoader",
+    "RedshiftLoader",
     # Factory
     "get_loader",
     # Orchestration

@@ -312,6 +312,8 @@ class TableSetupWorkflow(BaseWorkflow):
             platform_dir = "databricks"
         elif platform in ("bq", "bigquery"):
             platform_dir = "bigquery"
+        elif platform in ("rs", "redshift"):
+            platform_dir = "redshift"
         else:
             platform_dir = "snowflake"
         views_dir = Path(__file__).parent.parent.parent / "outputs" / "generated_sql" / platform_dir
@@ -336,6 +338,9 @@ class TableSetupWorkflow(BaseWorkflow):
             elif platform in ("bq", "bigquery"):
                 # BigQuery has no `USE SCHEMA`; views must reference 3-part names.
                 pass
+            elif platform in ("rs", "redshift"):
+                connector.execute_query(f'SET search_path TO "{schema}", public')
+                connector.commit()
             else:
                 connector.execute_query(f"USE SCHEMA {schema}")
         except Exception as e:
@@ -347,7 +352,7 @@ class TableSetupWorkflow(BaseWorkflow):
             view_name = match.group(1) if match else view_file.stem
             try:
                 connector.execute_query(sql_text)
-                if platform in ("pg", "postgres", "postgresql"):
+                if platform in ("pg", "postgres", "postgresql", "rs", "redshift"):
                     connector.commit()
                 result["created"] += 1
                 logger.info(f"Created view: {view_name}")
@@ -355,7 +360,7 @@ class TableSetupWorkflow(BaseWorkflow):
                 result["failed"] += 1
                 result["errors"].append(f"{view_name}: {e}")
                 logger.error(f"Failed to create view {view_name}: {e}")
-                if platform in ("pg", "postgres", "postgresql"):
+                if platform in ("pg", "postgres", "postgresql", "rs", "redshift"):
                     try:
                         connector.rollback()
                     except Exception:
@@ -386,7 +391,7 @@ class TableSetupWorkflow(BaseWorkflow):
         # Drop in reverse order (bridge -> fact -> dimension)
         drop_order = list(reversed(all_tables))
         
-        if creator.platform == "postgres":
+        if creator.platform in ("postgres", "redshift"):
             qualified_prefix = creator.schema_name
         else:
             qualified_prefix = f"{creator.database_name}.{creator.schema_name}"
@@ -407,11 +412,11 @@ class TableSetupWorkflow(BaseWorkflow):
                     creator.connector.execute_query(
                         f"DROP TABLE IF EXISTS {qualified_name}{cascade_clause}"
                     )
-                    if creator.platform == "postgres":
+                    if creator.platform in ("postgres", "redshift"):
                         creator.connector.commit()
                 except Exception as e:
                     logger.warning(f"Failed to drop {table_name}: {e}")
-                    if creator.platform == "postgres":
+                    if creator.platform in ("postgres", "redshift"):
                         try:
                             creator.connector.rollback()
                         except Exception:
