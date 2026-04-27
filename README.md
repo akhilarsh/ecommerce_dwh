@@ -1,6 +1,6 @@
 # E-Commerce Data Warehouse
 
-A Python-based programmatic database setup system for building a multi-channel retail e-commerce data warehouse on Snowflake.
+A Python-based programmatic database setup system for building a multi-channel retail e-commerce data warehouse on Snowflake, PostgreSQL, Databricks, BigQuery, or Amazon Redshift — same models, same CLI, same data, swap the target platform with a single config flag.
 
 ## Overview
 
@@ -15,15 +15,26 @@ This project provides a modular, object-oriented framework for:
 
 ## Architecture
 
-**Database:** Snowflake Data Warehouse  
-**Design Pattern:** Star Schema (Dimensional Modeling)  
+**Supported warehouses:** Snowflake, PostgreSQL, Databricks (Unity Catalog), Google BigQuery, Amazon Redshift
+**Design Pattern:** Star Schema (Dimensional Modeling)
 **Python Version:** 3.10+
+
+### Supported warehouses
+
+| Platform | Shorthand | Connector | Loader | Native types used |
+|---|---|---|---|---|
+| Snowflake | `sf` | `SnowflakeConnector` | `write_pandas` / staged COPY INTO | VARIANT / OBJECT / ARRAY / GEOGRAPHY / BINARY |
+| PostgreSQL | `pg` | `PostgresConnector` | `execute_values` / COPY FROM STDIN | JSONB / TEXT (geo) / BYTEA |
+| Databricks (Unity Catalog) | `db` / `dbx` | `DatabricksConnector` | multi-row INSERT (Delta) | VARIANT / STRING (geo) / BINARY |
+| BigQuery | `bq` | `BigQueryConnector` | NDJSON load jobs | JSON / GEOGRAPHY / BYTES |
+| Amazon Redshift | `rs` | `RedshiftConnector` | multi-row INSERT / COPY-from-S3 | SUPER / GEOGRAPHY / VARBYTE |
 
 ### Schema Overview
 
-- **4 Fact Tables** - Sales, Inventory, Customer Interactions, Loyalty Points
-- **13 Dimension Tables** - Customers, Products, Stores, Channels, Dates, Accounts, etc.
-- **3 Bridge Tables** - Order Items, Product Promotions, Account Customers
+- **4 Fact Tables** — Sales, Inventory Snapshots, Customer Interactions, Loyalty Points
+- **16 Dimension Tables** — Customers, Customer Address, Customer Loyalty, Products, Stores, Employees, Accounts, Channels, Dates, Time, Promotions, Payment Methods, Shipping Methods, Customer Segments, Loyalty Tiers, Product Categories
+- **3 Bridge Tables** — Order Items, Product Promotions, Account Customers
+- **23 tables total**, identical names on every supported platform
 
 ## Quick Start
 
@@ -43,8 +54,12 @@ cd ecommerce_dwh
 python3 -m venv venv
 source venv/bin/activate
 
-# Install with dev dependencies
-pip3 install -e ".[dev]"
+# Install with dev dependencies + the platform extras you need
+# (snowflake-connector ships with the base install; others are optional)
+pip3 install -e ".[dev,pg,databricks,bigquery,redshift]"
+
+# Or only the one(s) you target, e.g.:
+# pip3 install -e ".[dev,redshift]"
 
 # Configure credentials
 cp .env.example .env
@@ -57,9 +72,10 @@ cp .env.example .env
 # Set your target platform (one-time setup)
 # Use shorthand or full name:
 dwh config set-wh snowflake       # or: dwh config set-wh sf
+dwh config set-wh postgres        # or: dwh config set-wh pg
+dwh config set-wh databricks      # or: dwh config set-wh db
 dwh config set-wh bigquery        # or: dwh config set-wh bq
 dwh config set-wh redshift        # or: dwh config set-wh rs
-dwh config set-wh databricks      # or: dwh config set-wh db
 
 # View current configuration
 dwh config show
@@ -91,7 +107,7 @@ The `dwh` CLI provides access to all operations:
 
 ```bash
 # Configuration
-dwh config set-wh <platform>     # Set DWH platform (sf, bq, rs, db)
+dwh config set-wh <platform>     # Set DWH platform (sf, pg, db, bq, rs)
 dwh config set-wh sf --local     # Set for current project only
 dwh config show                  # Show current configuration
 
@@ -131,7 +147,7 @@ ecommerce_dwh/
 ├── src/
 │   ├── cli/                     # CLI commands and entry point
 │   ├── config/                  # Configuration files (YAML)
-│   ├── connectors/              # Database connectors (Snowflake, etc.)
+│   ├── connectors/              # Database connectors (Snowflake, Postgres, Databricks, BigQuery, Redshift)
 │   ├── data_generators/         # Test data generation (entities, helpers)
 │   ├── data_loaders/            # Data loading modules
 │   ├── models/                  # Table definitions (dimension, fact, bridge)
@@ -169,8 +185,12 @@ ecommerce_dwh/
 | 5 | Test Data Generation | Complete |
 | 6 | Data Loading Module | Complete |
 | 7 | Execution Workflows | Complete |
-| 8 | Integration & Testing | Complete |
+| 8 | Audience Analytics | Complete |
 | 9 | Account Dimension | Complete |
+| 10 | PostgreSQL Support | Complete |
+| 11 | Databricks Support | Complete |
+| 12 | BigQuery Support | Complete |
+| 13 | Amazon Redshift Support | Complete |
 
 ## Testing
 
@@ -187,8 +207,10 @@ pytest tests/ --cov=src --cov-report=term-missing
 # Run specific test file
 pytest tests/test_workflows.py -v
 
-# Run integration tests (requires Snowflake)
+# Run integration tests (gated; require live credentials for the platform)
 pytest tests/test_integration.py -v -m "snowflake_required"
+RUN_BIGQUERY_SMOKE=1 pytest tests/test_bigquery_smoke.py -v
+RUN_REDSHIFT_SMOKE=1 pytest tests/test_redshift_smoke.py -v
 ```
 
 ## Configuration
@@ -203,25 +225,69 @@ The CLI supports multiple data warehouse platforms. Configure your platform usin
 
 Supported platforms (shorthand / full name):
 
-- `sf` / `snowflake` - Snowflake Data Cloud
-- `bq` / `bigquery` - Google BigQuery
-- `rs` / `redshift` - Amazon Redshift
-- `db` / `databricks` - Databricks
+- `sf` / `snowflake` — Snowflake Data Cloud
+- `pg` / `postgres` / `postgresql` — PostgreSQL
+- `db` / `dbx` / `databricks` — Databricks (Unity Catalog, DBR 15.3+)
+- `bq` / `bigquery` — Google BigQuery
+- `rs` / `redshift` — Amazon Redshift (provisioned and Serverless)
 
-### Snowflake Connection (.env)
+Per-platform `.env` blocks live in [`.env.example`](.env.example). The minimum each one needs:
 
+**Snowflake**
 ```sh
-# Platform selection
 DWH_PLATFORM=sf
-
-# Snowflake credentials
 SNOWFLAKE_ACCOUNT=your_account
 SNOWFLAKE_USER=your_username
-SNOWFLAKE_PASSWORD=your_password
+SNOWFLAKE_PASSWORD=your_password   # or SNOWFLAKE_PRIVATE_KEY_PATH for keypair
 SNOWFLAKE_WAREHOUSE=your_warehouse
-SNOWFLAKE_DATABASE=ecommerce_db
-SNOWFLAKE_SCHEMA=e_mart
-SNOWFLAKE_ROLE=your_role
+SNOWFLAKE_DATABASE=ECOMMERCE_DB
+SNOWFLAKE_SCHEMA=E_MART
+SNOWFLAKE_ROLE=ECOMMERCE_ROLE
+```
+
+**PostgreSQL**
+```sh
+DWH_PLATFORM=pg
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=ecommerce_user
+POSTGRES_PASSWORD=your_password
+POSTGRES_DATABASE=ecommerce_db
+POSTGRES_SCHEMA=e_mart
+```
+
+**Databricks**
+```sh
+DWH_PLATFORM=db
+DATABRICKS_SERVER_HOSTNAME=your_workspace.cloud.databricks.com
+DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/your_warehouse_id
+DATABRICKS_CATALOG=ecommerce_db
+DATABRICKS_SCHEMA=e_mart
+DATABRICKS_ACCESS_TOKEN=dapi_your_token   # or DATABRICKS_CLIENT_ID + _SECRET for OAuth M2M
+```
+
+**BigQuery**
+```sh
+DWH_PLATFORM=bq
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+BIGQUERY_PROJECT=ecommerce-db
+BIGQUERY_DATASET=e_mart
+BIGQUERY_LOCATION=US
+```
+
+**Redshift**
+```sh
+DWH_PLATFORM=rs
+REDSHIFT_AUTH_METHOD=password   # or 'iam'
+REDSHIFT_HOST=your-cluster-or-workgroup-endpoint
+REDSHIFT_DATABASE=ecommerce_db
+REDSHIFT_SCHEMA=e_mart
+REDSHIFT_USER=ecommerce_user
+REDSHIFT_PASSWORD=your_password
+AWS_REGION=us-east-1
+# Optional COPY-from-S3 staging (defaults to executemany INSERT otherwise):
+# REDSHIFT_S3_STAGING_BUCKET=your-staging-bucket
+# REDSHIFT_COPY_IAM_ROLE=arn:aws:iam::123:role/ecommerce-dwh-copy-role
 ```
 
 ### Environment Configuration
@@ -280,4 +346,4 @@ The project includes CI/CD workflows:
 
 ---
 
-**Built with:** Python 3.10+ | Snowflake | Faker | Pandas | Click | Rich
+**Built with:** Python 3.10+ | Snowflake / PostgreSQL / Databricks / BigQuery / Redshift | Faker | Pandas | Click | Rich

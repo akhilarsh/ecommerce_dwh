@@ -4,7 +4,7 @@
 
 This document provides deep technical details about the e-commerce data warehouse architecture, design patterns, and implementation strategies.
 
-> **Supported Platforms:** Currently Snowflake. The connector architecture supports adding BigQuery, Redshift, and Databricks.
+> **Supported Platforms:** Snowflake, PostgreSQL, Databricks (Unity Catalog), Google BigQuery, Amazon Redshift. The connector + DDL adapter + loader trio is the pluggable seam — adding a sixth platform is mostly mechanical.
 
 ## 🎯 System Architecture
 
@@ -35,17 +35,19 @@ This document provides deep technical details about the e-commerce data warehous
 ┌─────────────────────────────────────────────────────────────┐
 │                     Data Access Layer                        │
 │  ┌─────────────────────────────────────────────────┐        │
-│  │       Snowflake Connector & Connection Pool     │        │
+│  │   ConnectorFactory  →  one of:                  │        │
+│  │     Snowflake | Postgres | Databricks |         │        │
+│  │     BigQuery  | Redshift                        │        │
 │  └─────────────────────────────────────────────────┘        │
 └─────────────────────────────────────────────────────────────┘
                             │
 ┌─────────────────────────────────────────────────────────────┐
 │                     Data Warehouse Platform                  │
-│              (Currently: Snowflake | Planned: BQ, RS, DB)   │
+│              (selected at runtime via DWH_PLATFORM)         │
 │  ┌─────────────────────────────────────────────────┐        │
 │  │         Database: ecommerce_db                  │        │
-│  │         Schema: ecommerce_dwh                   │        │
-│  │         Tables: 20 (4 fact, 13 dim, 3 bridge)  │        │
+│  │         Schema:   e_mart                        │        │
+│  │         Tables:   23 (4 fact, 16 dim, 3 bridge) │        │
 │  └─────────────────────────────────────────────────┘        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -399,11 +401,12 @@ class BaseDataLoader(ABC):
     @abstractmethod
     def verify_load(self, table_name) -> int
 
-# Snowflake-specific implementation
-class SnowflakeLoader(BaseDataLoader):
-    # For small-medium volumes (< 100K rows): uses write_pandas
-    # For large volumes (>= 100K rows): uses staged COPY INTO
-    def load_dataframe(self, df, table_name, truncate=False) -> LoadResult
+# Per-platform implementations (one each):
+#   SnowflakeLoader   — write_pandas (<100K rows) / staged COPY INTO
+#   PostgresLoader    — execute_values (<100K) / COPY FROM STDIN
+#   DatabricksLoader  — multi-row INSERT into Delta tables
+#   BigQueryLoader    — NDJSON load jobs (free, batched)
+#   RedshiftLoader    — multi-row INSERT (<5K) / COPY-from-S3 when bucket configured
 
 # Orchestrates loading in FK-dependency order
 class DataLoadOrchestrator:
@@ -419,34 +422,38 @@ class DataLoadOrchestrator:
 
 ### 5. Connection Layer (`connectors/`)
 
-**Responsibility:** Manage data warehouse connections
+**Responsibility:** Manage data warehouse connections across all five supported platforms behind a single interface.
 
-**Pattern:** Context Manager
+**Pattern:** Context Manager + Factory
 
 ```python
-class SnowflakeConnector:
-    def __init__(self, config: Dict):
-        self.config = config
-        self.connection = None
-    
-    def connect(self) -> Connection:
-        return snowflake.connector.connect(**self.config)
-    
-    def __enter__(self):
-        self.connection = self.connect()
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.connection:
-            self.connection.close()
-    
-    def execute_query(self, sql: str) -> Cursor:
-        return self.connection.cursor().execute(sql)
+# Abstract base — every connector implements this
+class BaseConnector(ABC):
+    PLATFORM: str
+    @abstractmethod
+    def connect(self) -> None
+    @abstractmethod
+    def execute_query(self, sql: str, params=None) -> List[tuple]
+    @abstractmethod
+    def commit(self) / rollback(self) -> None
+    @abstractmethod
+    def table_exists(self, name, schema=None) -> bool
+    # ... etc
 
-# Usage
-with SnowflakeConnector(config) as conn:
+# Concrete implementations (one per platform)
+class SnowflakeConnector(BaseConnector):  PLATFORM = "snowflake"
+class PostgresConnector(BaseConnector):   PLATFORM = "postgres"
+class DatabricksConnector(BaseConnector): PLATFORM = "databricks"
+class BigQueryConnector(BaseConnector):   PLATFORM = "bigquery"
+class RedshiftConnector(BaseConnector):   PLATFORM = "redshift"
+
+# Factory selects by env / .dwh.yaml / DWH_PLATFORM
+from src.connectors import get_connector
+with get_connector("rs") as conn:           # or "sf" / "pg" / "db" / "bq"
     conn.execute_query("CREATE TABLE ...")
 ```
+
+The factory routes the shorthand (`sf`/`pg`/`db`/`bq`/`rs`) to the matching connector class. All five expose the same `BaseConnector` surface, so callers above this layer (`DataLoadOrchestrator`, `TableCreator`, CLI commands) are platform-agnostic.
 
 ## 🔧 Configuration Architecture
 
@@ -528,7 +535,7 @@ ALTER MATERIALIZED VIEW mv_daily_sales REFRESH;
 
 ### 4. Partitioning Strategy
 
-- Platform-specific partitioning (Snowflake: micro-partitions, BigQuery: partition tables)
+- Platform-specific partitioning / clustering: Snowflake micro-partitions + clustering keys, Databricks Delta auto-optimize + ZORDER, BigQuery partition + cluster columns, Redshift `DISTSTYLE AUTO` + automatic sort keys, Postgres B-tree indexes
 - Clustering keys optimize data organization
 - Date-based queries benefit from partition pruning
 
@@ -623,7 +630,7 @@ HAVING COUNT(*) > 1;  -- Should return 0 rows
 ```text
 1. Development
    ├── Local Python environment
-   ├── DWH dev account (Snowflake, etc.)
+   ├── DWH dev account (any of: Snowflake, Postgres, Databricks, BigQuery, Redshift)
    └── Git feature branch
 
 2. Testing

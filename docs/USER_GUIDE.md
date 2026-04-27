@@ -2,7 +2,7 @@
 
 This guide covers all operations for the E-Commerce Data Warehouse system.
 
-> **Supported Platforms:** Currently Snowflake. BigQuery, Redshift, and Databricks connectors are planned.
+> **Supported Platforms:** Snowflake, PostgreSQL, Databricks (Unity Catalog), Google BigQuery, Amazon Redshift. Pick a target with `dwh config set-wh <platform>` — all CLI commands below behave identically across platforms.
 
 ## Table of Contents
 
@@ -23,12 +23,15 @@ This guide covers all operations for the E-Commerce Data Warehouse system.
 python3 -m venv venv
 source venv/bin/activate
 
-# 2. Install the package
-pip install -e ".[dev]"
+# 2. Install the package + the platform extras you need
+#    (snowflake-connector ships with the base; others are optional)
+pip install -e ".[dev,pg,databricks,bigquery,redshift]"
+# Or only the one(s) you target, e.g. .[dev,redshift]
 
 # 3. Configure credentials
 cp .env.example .env
-# Edit .env with your Snowflake credentials
+# Edit .env: set DWH_PLATFORM and the matching <PLATFORM>_* vars
+# (per-platform blocks listed at the top of .env.example)
 
 # 4. Verify connection
 dwh test-connection
@@ -50,7 +53,7 @@ dwh setup-tables
 # 3. Generate initial data
 dwh generate-initial
 
-# 4. Load data into Snowflake
+# 4. Load data into the configured warehouse
 dwh load-data --mode initial --truncate
 
 # 5. Verify deployment
@@ -397,7 +400,7 @@ pytest tests/test_integration.py -v -m "snowflake_required"
 
 1. Verify `.env` file has correct credentials
 2. Check account identifier format (e.g., `abc12345.us-east-1`)
-3. Verify network connectivity to Snowflake
+3. Verify network connectivity to the warehouse endpoint (Snowflake account, BigQuery API, Databricks workspace host, Redshift cluster/workgroup endpoint, or Postgres host:port)
 
 ```bash
 # Debug connection

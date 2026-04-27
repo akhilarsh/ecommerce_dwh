@@ -2,7 +2,7 @@
 
 This guide provides step-by-step instructions for setting up and running the e-commerce data warehouse project.
 
-> **Supported Platforms:** Snowflake and PostgreSQL. BigQuery, Redshift, and Databricks connectors are planned.
+> **Supported Platforms:** Snowflake, PostgreSQL, Databricks (Unity Catalog), Google BigQuery, Amazon Redshift. All five share the same models, CLI, and data generators — pick a target with `dwh config set-wh <platform>`.
 
 ## 📋 Prerequisites
 
@@ -15,27 +15,36 @@ This guide provides step-by-step instructions for setting up and running the e-c
 
 ### 2. Data Warehouse Account
 
+Pick one of the five supported platforms — collect the connection details listed below before continuing. The CLI reads them from `.env` (see [.env.example](../.env.example) for the canonical block per platform).
+
 #### Option A: Snowflake
 
-- Active Snowflake account
-- User with appropriate privileges (CREATE DATABASE, CREATE SCHEMA, CREATE TABLE)
-- Warehouse with sufficient compute resources
-- Note your account details:
-  - Account identifier
-  - Username
-  - Password / private key
-  - Warehouse name
-  - Role name
+- Active Snowflake account; user with `CREATE TABLE` + warehouse `USAGE`
+- Account identifier, username, password (or RSA key), warehouse, database, schema, role
 
-#### Option B: PostgreSQL (default in `.dwh.yaml`)
+#### Option B: PostgreSQL
 
-- PostgreSQL 13+ instance (local or remote)
-- User with CREATE TABLE, INSERT, SELECT privileges on the target database
-- Note your connection details:
-  - Host and port (default: `localhost:5432`)
-  - Username and password
-  - Database name
-  - Schema name
+- PostgreSQL 13+ (local or remote); user with `CREATE TABLE`, `INSERT`, `SELECT` on target DB
+- Host, port (default `5432`), username, password, database, schema
+
+#### Option C: Databricks (Unity Catalog)
+
+- DBR 15.3 LTS or newer (required for native VARIANT)
+- SQL warehouse HTTP path; PAT or OAuth M2M client_id/client_secret
+- Catalog name, schema name (catalog must already exist; schema is auto-created)
+
+#### Option D: Google BigQuery
+
+- GCP project with billing enabled
+- Service account with `roles/bigquery.jobUser` (project) + `roles/bigquery.dataEditor` (dataset)
+  — see [sql/bigquery/03_user_grants.sql](../sql/bigquery/03_user_grants.sql)
+- JSON key path (`GOOGLE_APPLICATION_CREDENTIALS`) or ADC; project, dataset, location
+
+#### Option E: Amazon Redshift
+
+- Provisioned cluster *or* Redshift Serverless workgroup (cluster admin must run [sql/redshift/03_user_grants.sql](../sql/redshift/03_user_grants.sql) once)
+- Endpoint host, port `5439`, database, schema, user/password (or IAM auth + AWS region)
+- Optional: S3 staging bucket + `REDSHIFT_COPY_IAM_ROLE` to enable COPY-from-S3 for fact-table loads
 
 ### 3. Development Tools
 
@@ -125,57 +134,73 @@ dwh config show
 
 Supported platforms (shorthand / full name):
 
-- `pg` / `postgres` - PostgreSQL *(default — set in `.dwh.yaml`)*
-- `sf` / `snowflake` - Snowflake Data Cloud
-- `bq` / `bigquery` - Google BigQuery *(planned)*
-- `rs` / `redshift` - Amazon Redshift *(planned)*
-- `db` / `databricks` - Databricks *(planned)*
+- `sf` / `snowflake` — Snowflake Data Cloud
+- `pg` / `postgres` / `postgresql` — PostgreSQL
+- `db` / `dbx` / `databricks` — Databricks (Unity Catalog, DBR 15.3+)
+- `bq` / `bigquery` — Google BigQuery
+- `rs` / `redshift` — Amazon Redshift (provisioned and Serverless)
 
 #### Add Your Credentials to .env
 
-**PostgreSQL (default):**
+The canonical block per platform is in [.env.example](../.env.example). Below are the minimal required vars per platform — copy the relevant block to `.env` and set `DWH_PLATFORM` to match.
 
+**Snowflake**
 ```bash
-# DWH Platform Selection
-DWH_PLATFORM=pg
+DWH_PLATFORM=sf
+SNOWFLAKE_ACCOUNT=xy12345.us-east-1.aws    # or just xy12345
+SNOWFLAKE_USER=your_username
+SNOWFLAKE_PASSWORD=your_password           # or SNOWFLAKE_PRIVATE_KEY_PATH
+SNOWFLAKE_WAREHOUSE=your_warehouse
+SNOWFLAKE_DATABASE=ECOMMERCE_DB
+SNOWFLAKE_SCHEMA=E_MART
+SNOWFLAKE_ROLE=ECOMMERCE_ROLE
+```
+Account identifier format: `<account_locator>.<region>.<cloud_provider>` (e.g. `xy12345.us-east-1.aws`) or just `<account_locator>` if in the default region. Found in the Snowflake UI → Account → URL.
 
-# PostgreSQL Connection Details
+**PostgreSQL**
+```bash
+DWH_PLATFORM=pg
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_USER=your_username
+POSTGRES_USER=ecommerce_user
 POSTGRES_PASSWORD=your_password
 POSTGRES_DATABASE=ecommerce_db
-POSTGRES_SCHEMA=ecommerce_dwh
-
-LOG_LEVEL=INFO
+POSTGRES_SCHEMA=e_mart
 ```
 
-**Snowflake:**
-
+**Databricks (Unity Catalog)**
 ```bash
-# DWH Platform Selection
-DWH_PLATFORM=snowflake
-
-# Snowflake Connection Details
-SNOWFLAKE_ACCOUNT=your_account_identifier
-SNOWFLAKE_USER=your_username
-SNOWFLAKE_PASSWORD=your_password
-SNOWFLAKE_WAREHOUSE=your_warehouse_name
-SNOWFLAKE_DATABASE=ecommerce_db
-SNOWFLAKE_SCHEMA=ecommerce_dwh
-SNOWFLAKE_ROLE=your_role_name
-
-# Optional: Additional settings
-SNOWFLAKE_REGION=us-east-1  # if needed
-LOG_LEVEL=INFO
+DWH_PLATFORM=db
+DATABRICKS_SERVER_HOSTNAME=your_workspace.cloud.databricks.com
+DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/your_warehouse_id
+DATABRICKS_CATALOG=ecommerce_db
+DATABRICKS_SCHEMA=e_mart
+DATABRICKS_ACCESS_TOKEN=dapi_your_token       # or DATABRICKS_CLIENT_ID + _SECRET for OAuth M2M
 ```
 
-**Finding Your Snowflake Account Identifier:**
+**BigQuery**
+```bash
+DWH_PLATFORM=bq
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+BIGQUERY_PROJECT=ecommerce-db
+BIGQUERY_DATASET=e_mart
+BIGQUERY_LOCATION=US
+```
 
-- Format: `<account_locator>.<region>.<cloud_provider>`
-- Example: `xy12345.us-east-1.aws`
-- Or just: `xy12345` (if in same region)
-- Found in Snowflake UI → Account → URL
+**Amazon Redshift**
+```bash
+DWH_PLATFORM=rs
+REDSHIFT_AUTH_METHOD=password                  # or 'iam'
+REDSHIFT_HOST=your-cluster-or-workgroup-endpoint
+REDSHIFT_DATABASE=ecommerce_db
+REDSHIFT_SCHEMA=e_mart
+REDSHIFT_USER=ecommerce_user
+REDSHIFT_PASSWORD=your_password
+AWS_REGION=us-east-1
+# Optional COPY-from-S3 (defaults to multi-row INSERT otherwise):
+# REDSHIFT_S3_STAGING_BUCKET=your-staging-bucket
+# REDSHIFT_COPY_IAM_ROLE=arn:aws:iam::123:role/ecommerce-dwh-copy-role
+```
 
 **Important Security Notes:**
 
