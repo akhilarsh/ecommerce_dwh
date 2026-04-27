@@ -7,7 +7,7 @@ Uses write_pandas for small/medium datasets and COPY INTO for large datasets.
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -101,13 +101,19 @@ class SnowflakeLoader(BaseDataLoader):
         
         # Select method based on row count
         method = self._select_load_method(len(df))
-        
+
         try:
             # Truncate if configured
             if self.config.truncate_before_load:
                 self.truncate_table(table_name)
-            
-            if method == LoadMethod.STAGED and len(df) >= self.config.staged_load_threshold:
+
+            # Tables with semi-structured / geospatial / binary columns require
+            # column-level transforms (PARSE_JSON, TO_GEOGRAPHY, TO_BINARY) that
+            # write_pandas cannot perform. Route them through staged COPY INTO.
+            special_cols = self._get_special_columns(table_name)
+            if special_cols:
+                result = self._load_via_transformed_copy(df, table_name, special_cols)
+            elif method == LoadMethod.STAGED and len(df) >= self.config.staged_load_threshold:
                 # For very large DataFrames, save to temp file and use COPY INTO
                 result = self._load_via_staging(df, table_name)
             else:
@@ -182,6 +188,125 @@ class SnowflakeLoader(BaseDataLoader):
             method=LoadMethod.DATAFRAME
         )
     
+    # Snowflake types that require explicit transforms on COPY INTO from CSV.
+    _TRANSFORM_TYPES = {"VARIANT", "OBJECT", "ARRAY", "GEOGRAPHY", "GEOMETRY", "BINARY", "VARBINARY"}
+
+    def _get_column_types(self, table_name: str) -> Dict[str, str]:
+        """Return ordered map of column name -> Snowflake DATA_TYPE for a table."""
+        db = (self.config.database or "").upper()
+        schema = (self.config.schema or "").upper()
+        sql = f"""
+            SELECT COLUMN_NAME, DATA_TYPE
+            FROM {db}.INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_CATALOG = '{db}'
+              AND TABLE_SCHEMA = '{schema}'
+              AND TABLE_NAME = '{table_name.upper()}'
+            ORDER BY ORDINAL_POSITION
+        """
+        rows = self.connector.execute_query(sql) or []
+        return {r[0].upper(): (r[1] or "").upper() for r in rows}
+
+    def _get_special_columns(self, table_name: str) -> Dict[str, str]:
+        """Return columns whose types need transforms during COPY INTO."""
+        return {
+            col: dtype
+            for col, dtype in self._get_column_types(table_name).items()
+            if dtype in self._TRANSFORM_TYPES
+        }
+
+    def _load_via_transformed_copy(
+        self,
+        df: pd.DataFrame,
+        table_name: str,
+        special_cols: Dict[str, str],
+    ) -> LoadResult:
+        """
+        Load DataFrame via staged CSV + COPY INTO with per-column transforms.
+
+        Required for tables containing VARIANT/OBJECT/ARRAY/GEOGRAPHY/BINARY
+        columns, which write_pandas cannot populate from raw strings.
+        """
+        import tempfile
+
+        self._logger.debug(
+            f"Loading {len(df)} rows to {table_name} via transformed COPY INTO "
+            f"(special cols: {list(special_cols)})"
+        )
+
+        # Write CSV in DDL column order so $1..$N positional refs match.
+        column_types = self._get_column_types(table_name)
+        ordered_cols = [c for c in column_types if c in {x.upper() for x in df.columns}]
+        df_upper = df.rename(columns={c: c.upper() for c in df.columns})
+        df_ordered = df_upper[ordered_cols]
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as tmp_file:
+            df_ordered.to_csv(tmp_file.name, index=False, header=True)
+            tmp_path = Path(tmp_file.name)
+
+        stage_name = self.config.stage_name or f"@~/{table_name}_stage"
+        staged_filename = tmp_path.name + ".gz"
+        qualified_table = f"{self.config.database}.{self.config.schema}.{table_name}".upper()
+
+        try:
+            put_sql = f"PUT file://{tmp_path.absolute()} {stage_name} AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
+            self.connector.execute_query(put_sql)
+
+            select_exprs = []
+            for idx, col in enumerate(ordered_cols, start=1):
+                dtype = column_types[col]
+                if dtype in {"VARIANT", "OBJECT", "ARRAY"}:
+                    select_exprs.append(f"PARSE_JSON(${idx})")
+                elif dtype == "GEOGRAPHY":
+                    select_exprs.append(f"TO_GEOGRAPHY(${idx})")
+                elif dtype == "GEOMETRY":
+                    select_exprs.append(f"TO_GEOMETRY(${idx})")
+                elif dtype in {"BINARY", "VARBINARY"}:
+                    select_exprs.append(f"TO_BINARY(${idx}, 'BASE64')")
+                else:
+                    select_exprs.append(f"${idx}")
+
+            cols_csv = ", ".join(ordered_cols)
+            select_csv = ",\n                    ".join(select_exprs)
+            copy_sql = f"""
+                COPY INTO {qualified_table} ({cols_csv})
+                FROM (
+                    SELECT
+                    {select_csv}
+                    FROM {stage_name}/{staged_filename}
+                )
+                FILE_FORMAT = (
+                    TYPE = 'CSV'
+                    SKIP_HEADER = 1
+                    FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+                    NULL_IF = ('', 'NULL', 'None')
+                    EMPTY_FIELD_AS_NULL = TRUE
+                )
+                ON_ERROR = 'ABORT_STATEMENT'
+            """
+            result_rows = self.connector.execute_query(copy_sql)
+            rows_loaded = 0
+            if result_rows:
+                for row in result_rows:
+                    if len(row) >= 4 and row[3]:
+                        rows_loaded += row[3]
+
+            try:
+                self.connector.execute_query(f"REMOVE {stage_name}/{staged_filename}")
+            except Exception as e:
+                self._logger.warning(f"Failed to remove staged file: {e}")
+
+            return LoadResult(
+                table_name=table_name,
+                rows_loaded=rows_loaded,
+                success=True,
+                method=LoadMethod.STAGED,
+            )
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
     def _load_via_staging(
         self,
         df: pd.DataFrame,
