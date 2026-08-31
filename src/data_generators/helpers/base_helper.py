@@ -59,17 +59,42 @@ class DataGenerationResult:
         return sum(d.row_count for d in self.dimensions.values()) + \
                sum(f.row_count for f in self.facts.values())
     
+    @staticmethod
+    def _combine(existing: GeneratedData, new: GeneratedData) -> GeneratedData:
+        """Concatenate a new chunk onto data already added for the same table."""
+        frames = [
+            df for df in (existing.data, new.data)
+            if df is not None and not df.empty
+        ]
+        if not frames:
+            combined = existing.data if existing.data is not None else new.data
+        elif len(frames) == 1:
+            combined = frames[0]
+        else:
+            combined = pd.concat(frames, ignore_index=True)
+
+        return GeneratedData(
+            table_name=existing.table_name,
+            data=combined,
+            surrogate_keys=[*existing.surrogate_keys, *new.surrogate_keys],
+            generated_at=existing.generated_at,
+        )
+
     def add_dimension(self, data: GeneratedData) -> None:
-        """Add dimension data to result."""
-        self.dimensions[data.table_name] = data
-        if data.surrogate_keys:
-            self.keys[data.table_name] = data.surrogate_keys
+        """Add dimension data to result, concatenating repeated chunks."""
+        existing = self.dimensions.get(data.table_name)
+        merged = self._combine(existing, data) if existing else data
+        self.dimensions[merged.table_name] = merged
+        if merged.surrogate_keys:
+            self.keys[merged.table_name] = merged.surrogate_keys
     
     def add_fact(self, data: GeneratedData) -> None:
-        """Add fact data to result."""
-        self.facts[data.table_name] = data
-        if data.surrogate_keys:
-            self.keys[data.table_name] = data.surrogate_keys
+        """Add fact data to result, concatenating repeated chunks."""
+        existing = self.facts.get(data.table_name)
+        merged = self._combine(existing, data) if existing else data
+        self.facts[merged.table_name] = merged
+        if merged.surrogate_keys:
+            self.keys[merged.table_name] = merged.surrogate_keys
     
     def merge(self, other: "DataGenerationResult") -> None:
         """Merge another result into this one."""

@@ -91,13 +91,13 @@ class FactCustomerInteractions(BaseTable):
                 "VARCHAR",
                 length=100,
                 nullable=False,
-                comment="Website Visit, Store Visit, Support Call, Email, Chat"
+                comment="Page View, Product View, Add to Cart, Remove from Cart, Wishlist Add, Search, Store Visit, Customer Service Call, Email Open, Email Click, App Session"
             ),
             Column(
                 "device_type",
                 "VARCHAR",
                 length=50,
-                comment="Desktop, Mobile, Tablet, In-Store"
+                comment="Desktop, Mobile, Tablet, In-Store Kiosk, Phone"
             ),
             Column(
                 "session_id",

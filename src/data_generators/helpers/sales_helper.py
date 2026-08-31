@@ -514,11 +514,22 @@ class SalesHelper(BaseHelper):
                 if num_frequent > 0:
                     frequent_customers = random.sample(available_frequent, num_frequent)
                     self.logger.info(f"Selected {num_frequent} frequent shoppers: {frequent_customers}")
+                    frequent_shoppers_served = 0
 
                     for customer_key in frequent_customers:
-                        num_orders = random.randint(
-                            incremental.frequent_shopper_min_orders,
-                            incremental.frequent_shopper_max_orders
+                        order_budget = incremental.new_orders - frequent_orders_count
+                        if order_budget <= 0:
+                            self.logger.debug(
+                                "Order budget exhausted; skipping remaining frequent shoppers"
+                            )
+                            break
+
+                        num_orders = min(
+                            random.randint(
+                                incremental.frequent_shopper_min_orders,
+                                incremental.frequent_shopper_max_orders
+                            ),
+                            order_budget
                         )
                         frequent_sales = self._generate_sales(
                             dimension_keys=dimension_keys,
@@ -528,12 +539,17 @@ class SalesHelper(BaseHelper):
                         )
                         frequent_sales.data['customer_key'] = customer_key
                         result.add_fact(frequent_sales)
+                        # Advance the key cache per chunk so the next chunk does not
+                        # reuse the same sale_key range
+                        self._update_keys("fact_sales", frequent_sales.surrogate_keys)
                         all_sales_keys.extend(frequent_sales.surrogate_keys)
                         frequent_orders_count += num_orders
+                        frequent_shoppers_served += 1
                         self.logger.debug(f"Frequent shopper {customer_key}: {num_orders} orders")
 
                     self.logger.info(
-                        f"Generated {frequent_orders_count} orders for {num_frequent} frequent shoppers"
+                        f"Generated {frequent_orders_count} orders for "
+                        f"{frequent_shoppers_served} frequent shoppers"
                     )
 
             remaining_orders = max(0, incremental.new_orders - frequent_orders_count)
@@ -546,9 +562,8 @@ class SalesHelper(BaseHelper):
                     customer_selector=selector
                 )
                 result.add_fact(sales)
+                self._update_keys("fact_sales", sales.surrogate_keys)
                 all_sales_keys.extend(sales.surrogate_keys)
-
-            self._update_keys("fact_sales", all_sales_keys)
 
             product_keys = dimension_keys.get("dim_products", [])
             order_items = self._generate_order_items(

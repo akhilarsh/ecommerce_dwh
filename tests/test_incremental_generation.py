@@ -14,6 +14,8 @@ from pathlib import Path
 import pandas as pd
 
 from src.data_generators import (
+    DataGenConfig,
+    DataGenerator,
     IncrementalDataOrchestrator,
     IncrementalConfig,
     GenerationMode,
@@ -482,3 +484,85 @@ class TestGenerationMode:
         assert GenerationMode.NEW_PRODUCTS.value == "new-products"
         assert GenerationMode.EMPLOYEE_UPDATE.value == "employee-update"
         assert GenerationMode.EXTEND_DATES.value == "extend-dates"
+
+
+# ============================================================================
+# Frequent Shopper Chunking Tests
+# ============================================================================
+
+class TestFrequentShopperGeneration:
+    """Tests for frequent-shopper chunking in SalesHelper.generate_incremental."""
+
+    @staticmethod
+    def _build_generator(new_orders: int, frequent_shopper_count: int) -> DataGenerator:
+        """Create a generator seeded with existing dimension keys."""
+        config = DataGenConfig()
+        config.settings.seed = 42
+        config.incremental.new_orders = new_orders
+        config.incremental.frequent_shopper_count = frequent_shopper_count
+        config.incremental.frequent_shopper_min_orders = 2
+        config.incremental.frequent_shopper_max_orders = 5
+        config.incremental.max_items_per_order = 5
+
+        generator = DataGenerator(config=config)
+        loader = generator.keys_loader
+        loader.update_after_generation("dim_customers", list(range(1, 21)))
+        loader.update_after_generation("dim_products", list(range(1, 11)))
+        loader.update_after_generation("dim_stores", [1, 2])
+        loader.update_after_generation("dim_channels", [1, 2, 3])
+        loader.update_after_generation("dim_payment_methods", [1, 2])
+        loader.update_after_generation("dim_shipping_methods", [1, 2])
+        loader.update_after_generation("dim_employees", [1, 2])
+        loader.update_after_generation("dim_promotions", [1])
+        loader.update_after_generation("dim_customer_segments", [1, 2])
+        loader.update_after_generation("dim_time", [800, 900, 1000])
+        return generator
+
+    def test_frequent_shoppers_produce_requested_order_count(self):
+        generator = self._build_generator(new_orders=23, frequent_shopper_count=5)
+
+        result = generator.generate_incremental(
+            start_date=date(2024, 3, 1),
+            end_date=date(2024, 3, 7)
+        )
+
+        sales = result.facts["fact_sales"]
+        assert sales.row_count == 23
+        assert len(sales.surrogate_keys) == 23
+
+    def test_frequent_shopper_sale_keys_are_unique(self):
+        generator = self._build_generator(new_orders=23, frequent_shopper_count=5)
+
+        result = generator.generate_incremental(
+            start_date=date(2024, 3, 1),
+            end_date=date(2024, 3, 7)
+        )
+
+        sales = result.facts["fact_sales"]
+        sale_keys = sales.data["sale_key"].tolist()
+        assert len(set(sale_keys)) == len(sale_keys)
+        assert sorted(sales.surrogate_keys) == sorted(sale_keys)
+
+    def test_frequent_shoppers_receive_multiple_orders(self):
+        generator = self._build_generator(new_orders=23, frequent_shopper_count=5)
+
+        result = generator.generate_incremental(
+            start_date=date(2024, 3, 1),
+            end_date=date(2024, 3, 7)
+        )
+
+        counts = result.facts["fact_sales"].data["customer_key"].value_counts()
+        assert counts.max() >= 2
+
+    def test_order_items_respect_max_items_per_order(self):
+        generator = self._build_generator(new_orders=23, frequent_shopper_count=5)
+
+        result = generator.generate_incremental(
+            start_date=date(2024, 3, 1),
+            end_date=date(2024, 3, 7)
+        )
+
+        items = result.facts["bridge_order_items"].data
+        items_per_order = items.groupby("sale_key").size()
+        assert items_per_order.max() <= 5
+        assert len(items_per_order) == 23
