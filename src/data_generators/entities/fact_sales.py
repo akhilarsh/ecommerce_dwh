@@ -97,10 +97,14 @@ class FactSalesGenerator(BaseEntityGenerator):
                     )
                 range_date_keys = generate_date_range_keys(start_date, end_date)
             elif not date_keys:
-                range_date_keys = generate_date_range_keys(
-                    self.config.dates.start or date(2024, 1, 1),
-                    self.config.dates.end or date(2024, 12, 31)
-                )
+                config_start = self.config.dates.start or date(2024, 1, 1)
+                config_end = self.config.dates.end or date(2024, 12, 31)
+                if config_start > config_end:
+                    raise ValueError(
+                        f"config date range start {config_start} is after "
+                        f"end {config_end}"
+                    )
+                range_date_keys = generate_date_range_keys(config_start, config_end)
         
         for i in range(count):
             key = start_key + i
