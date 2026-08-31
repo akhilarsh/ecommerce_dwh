@@ -4,6 +4,9 @@ Unit tests for data generation module (Phase 5 architecture).
 Tests the new config-driven DataGenerator with domain helpers.
 """
 
+import copy
+import random
+
 import pytest
 import pandas as pd
 from datetime import date
@@ -23,6 +26,8 @@ from src.data_generators import (
     DimChannelsGenerator,
     DimProductsGenerator,
     FactSalesGenerator,
+    FactCustomerInteractionsGenerator,
+    FactLoyaltyPointsGenerator,
     # Utilities
     date_to_key,
     key_to_date,
@@ -183,6 +188,116 @@ class TestFactSalesGenerator:
         assert "net_amount" in df.columns
         assert "tax_amount" in df.columns
 
+
+# ============================================================================
+# Fact Date Range Tests
+# ============================================================================
+
+RANGE_FACT_GENERATORS = [
+    FactSalesGenerator,
+    FactCustomerInteractionsGenerator,
+    FactLoyaltyPointsGenerator,
+]
+
+
+class TestFactDateRangeInclusivity:
+    """Date ranges passed to fact generators must include both boundaries."""
+
+    @pytest.fixture(autouse=True)
+    def seed_random(self, small_config):
+        """
+        Seed the stdlib RNG used for date selection.
+
+        config.settings.seed only seeds Faker (see BaseEntityGenerator), but the
+        generators pick dates via random.choice. Without this the coverage
+        assertions below would be non-deterministic.
+        """
+        state = random.getstate()
+        random.seed(small_config.settings.seed)
+        yield
+        random.setstate(state)
+
+    @pytest.mark.parametrize("generator_class", RANGE_FACT_GENERATORS)
+    def test_range_covers_both_boundary_dates(self, small_config, generator_class):
+        start = date(2026, 4, 23)
+        end = date(2026, 8, 30)
+
+        gen = generator_class(small_config)
+        data = gen.generate(count=3000, start_date=start, end_date=end)
+        date_keys = set(data.data["date_key"])
+
+        assert date_to_key(start) in date_keys
+        assert date_to_key(end) in date_keys
+
+    @pytest.mark.parametrize("generator_class", RANGE_FACT_GENERATORS)
+    def test_range_covers_every_day_and_stays_within_bounds(
+        self, small_config, generator_class
+    ):
+        start = date(2026, 4, 23)
+        end = date(2026, 8, 30)
+        expected_days = (end - start).days + 1
+
+        gen = generator_class(small_config)
+        data = gen.generate(count=3000, start_date=start, end_date=end)
+        date_keys = set(data.data["date_key"])
+
+        assert len(date_keys) == expected_days
+        assert min(date_keys) == date_to_key(start)
+        assert max(date_keys) == date_to_key(end)
+
+    @pytest.mark.parametrize("generator_class", RANGE_FACT_GENERATORS)
+    def test_single_day_range_yields_that_day(self, small_config, generator_class):
+        single_day = date(2026, 8, 30)
+
+        gen = generator_class(small_config)
+        data = gen.generate(count=25, start_date=single_day, end_date=single_day)
+
+        assert set(data.data["date_key"]) == {date_to_key(single_day)}
+
+    @pytest.mark.parametrize("generator_class", RANGE_FACT_GENERATORS)
+    def test_target_date_overrides_range(self, small_config, generator_class):
+        target = date(2026, 6, 15)
+
+        gen = generator_class(small_config)
+        data = gen.generate(
+            count=25,
+            target_date=target,
+            start_date=date(2026, 4, 23),
+            end_date=date(2026, 8, 30),
+        )
+
+        assert set(data.data["date_key"]) == {date_to_key(target)}
+
+    @pytest.mark.parametrize("generator_class", RANGE_FACT_GENERATORS)
+    def test_inverted_range_raises(self, small_config, generator_class):
+        gen = generator_class(small_config)
+
+        with pytest.raises(ValueError):
+            gen.generate(
+                count=10,
+                start_date=date(2026, 8, 30),
+                end_date=date(2026, 4, 23),
+            )
+
+    @pytest.mark.parametrize("generator_class", RANGE_FACT_GENERATORS)
+    def test_inverted_config_range_raises_when_no_date_keys(
+        self, small_config, generator_class
+    ):
+        """
+        With no dim_dates keys the generators fall back to config.dates. An
+        inverted config range yields no candidate keys, so it must raise rather
+        than reach random.choice on an empty list.
+        """
+        # small_config is module-scoped -- copy before mutating so the
+        # inverted range does not leak into later tests.
+        config = copy.deepcopy(small_config)
+        config.dates.start = date(2026, 12, 31)
+        config.dates.end = date(2026, 1, 1)
+
+        gen = generator_class(config)
+
+        with pytest.raises(ValueError):
+            gen.generate(count=10, dimension_keys={"dim_dates": []})
 
 # ============================================================================
 # Full Generation Tests

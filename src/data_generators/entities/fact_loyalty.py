@@ -9,7 +9,7 @@ from datetime import datetime, date
 from typing import Any, Dict, List, Optional
 
 from .base_entity import BaseEntityGenerator, GeneratedData
-from ..utils.date_keys import date_to_key
+from ..utils.date_keys import date_to_key, generate_date_range_keys
 
 
 class FactLoyaltyPointsGenerator(BaseEntityGenerator):
@@ -82,6 +82,25 @@ class FactLoyaltyPointsGenerator(BaseEntityGenerator):
         date_keys = dimension_keys.get("dim_dates", [])
         time_keys = dimension_keys.get("dim_time", list(range(0, 240000, 1500)))
         
+        # Inclusive date keys for range-based generation (both bounds included)
+        range_date_keys: List[int] = []
+        if not target_date:
+            if start_date and end_date:
+                if start_date > end_date:
+                    raise ValueError(
+                        f"start_date {start_date} is after end_date {end_date}"
+                    )
+                range_date_keys = generate_date_range_keys(start_date, end_date)
+            elif not date_keys:
+                config_start = self.config.dates.start or date(2024, 1, 1)
+                config_end = self.config.dates.end or date(2024, 12, 31)
+                if config_start > config_end:
+                    raise ValueError(
+                        f"config date range start {config_start} is after "
+                        f"end {config_end}"
+                    )
+                range_date_keys = generate_date_range_keys(config_start, config_end)
+        
         for i in range(count):
             key = start_key + i
             keys.append(key)
@@ -95,20 +114,10 @@ class FactLoyaltyPointsGenerator(BaseEntityGenerator):
             # Select date - specific, range, or config default
             if target_date:
                 date_key = date_to_key(target_date)
-            elif start_date and end_date:
-                random_date = self.faker.date_between(
-                    start_date=start_date,
-                    end_date=end_date
-                )
-                date_key = date_to_key(random_date)
-            elif date_keys:
-                date_key = random.choice(date_keys)
+            elif range_date_keys:
+                date_key = random.choice(range_date_keys)
             else:
-                random_date = self.faker.date_between(
-                    start_date=self.config.dates.start or date(2024, 1, 1),
-                    end_date=self.config.dates.end or date(2024, 12, 31)
-                )
-                date_key = date_to_key(random_date)
+                date_key = random.choice(date_keys)
             
             # Transaction type - weighted toward earnings
             transaction_type = random.choices(
