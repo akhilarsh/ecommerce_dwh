@@ -259,6 +259,7 @@ def status_command(verbose: bool = False) -> None:
             is_snowflake = platform in ("sf", "snowflake")
             is_databricks = platform in ("db", "dbx", "databricks")
             is_bigquery = platform in ("bq", "bigquery")
+            is_redshift = platform in ("rs", "redshift")
             database = schema = None
 
             if is_snowflake:

@@ -40,10 +40,13 @@ CREATE ROLE ecommerce_role;
 -- ----------------------------------------------------------------------------
 -- A.2. CREATE THE DEPLOYMENT USER
 -- ----------------------------------------------------------------------------
--- Password is shown for clarity only; for production prefer IAM auth and
--- skip the password entirely (see Part B). The DB user name must match
--- REDSHIFT_USER in your .env.
-CREATE USER ecommerce_user WITH PASSWORD 'Ecomm!Strong26';
+-- The DB user name must match REDSHIFT_USER in your .env. For production
+-- prefer IAM auth and skip the password entirely (see Part B).
+--
+-- SECURITY: never commit a real password here. Replace the placeholder below
+-- at run time and keep the value only in .env (gitignored) or a secret
+-- manager. Redshift requires 8-64 chars with upper, lower, and a digit.
+CREATE USER ecommerce_user WITH PASSWORD '__SET_A_STRONG_PASSWORD__';
 
 
 -- ----------------------------------------------------------------------------
